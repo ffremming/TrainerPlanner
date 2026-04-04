@@ -58,6 +58,32 @@ export function getWeekSequence(startWeek, startYear, count) {
   return weeks
 }
 
+export function getWeekWindow(centerWeek, centerYear, beforeCount, afterCount) {
+  const weeks = []
+  let start = { week: centerWeek, year: centerYear }
+
+  for (let index = 0; index < beforeCount; index += 1) {
+    start = getAdjacentWeek(start.week, start.year, -1)
+  }
+
+  let cursor = start
+  const totalCount = beforeCount + afterCount + 1
+
+  for (let index = 0; index < totalCount; index += 1) {
+    const { monday, sunday } = getWeekDates(cursor.week, cursor.year)
+    weeks.push({
+      week: cursor.week,
+      year: cursor.year,
+      monday,
+      sunday,
+      key: `${cursor.year}-${String(cursor.week).padStart(2, '0')}`,
+    })
+    cursor = getAdjacentWeek(cursor.week, cursor.year, 1)
+  }
+
+  return weeks
+}
+
 export function getWeekKey(week, year) {
   return `${year}-${String(week).padStart(2, '0')}`
 }

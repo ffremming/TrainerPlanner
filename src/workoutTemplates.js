@@ -129,9 +129,9 @@ export const WORKOUT_TEMPLATES = [
     sessionDetails: '30 min gåing i motbakke på mølle før styrkedelen.',
     intensityZone: 2,
     warmup: '30 min gå motbakke',
-    exercises: 'Leg extension 3 x 8-12\nNedtrekk 3 x 8\nKnebøy 3 x 8\nHip thrust 3 x 8\nRyggøvelse 3 x 8\nMage 3 x 8',
+    exercises: 'Leg extension 3 x 8-12\nKnebøy 3 x 8\nHip trust 3 x 8\nNedtrekk 3 x 8\nSittende roing 3 x 8\nBrystpress 3 x 8\nSkulderhev 3 x 10\nMage 3 x 8',
     rest: '60-90 sek mellom sett',
-    notes: 'Fullkropp med fokus på store muskelgrupper.',
+    notes: 'Fullkropp med obligatoriske baseovelser for hele kroppen.',
   },
   // ─── STYRKE ───
   {
@@ -159,9 +159,9 @@ export const WORKOUT_TEMPLATES = [
     category: 'Styrke',
     type: 'styrke',
     title: 'Styrke – fullkropp A',
-    description: 'Knebøy 8x3\nMarkløft 8x3\nLeg extension 8–12x3\nSittende leg curl 8x3\nHip thrust 8x3\nNedtrekk (apparat) 8x3\nBrystpress (apparat) 8x3\nSkulderpress 3x8\nSittende roing (apparat) 3x8\nTricep extension (apparat) 3x8\nMage 8x3\nRygghev 8x3',
+    description: 'Leg extension 8–12x3\nKnebøy 8x3\nHip trust 8x3\nNedtrekk (apparat) 8x3\nSittende roing (apparat) 3x8\nBrystpress (apparat) 8x3\nSkulderhev 3x10\nMarkløft 8x3\nSittende leg curl 8x3\nTricep extension (apparat) 3x8\nMage 8x3\nRygghev 8x3',
     warmup: '30 min gå motbakke',
-    exercises: 'Knebøy 3 x 8\nMarkløft 3 x 8\nLeg extension 3 x 8-12\nSittende leg curl 3 x 8\nHip thrust 3 x 8\nNedtrekk (apparat) 3 x 8\nBrystpress (apparat) 3 x 8\nSkulderpress 3 x 8\nSittende roing (apparat) 3 x 8\nTricep extension (apparat) 3 x 8\nMage 3 x 8\nRygghev 3 x 8',
+    exercises: 'Leg extension 3 x 8-12\nKnebøy 3 x 8\nHip trust 3 x 8\nNedtrekk (apparat) 3 x 8\nSittende roing (apparat) 3 x 8\nBrystpress (apparat) 3 x 8\nSkulderhev 3 x 10\nMarkløft 3 x 8\nSittende leg curl 3 x 8\nTricep extension (apparat) 3 x 8\nMage 3 x 8\nRygghev 3 x 8',
     rest: '60-90 sek mellom sett',
   },
   {
@@ -169,9 +169,9 @@ export const WORKOUT_TEMPLATES = [
     category: 'Styrke',
     type: 'styrke',
     title: 'Styrke – fullkropp B',
-    description: 'Knebøy 8x3\nRumensk markløft 8x3\nUtfall 8x3 per bein\nSittende leg curl 8x3\nNedtrekk (apparat) 8x3\nBrystpress (apparat) 8x3\nSittende roing (apparat) 8x3\nSkulderpress 3x8\nBicep curl 3x8\nPlanke 3 sett\nRygghev 8x3',
+    description: 'Leg extension 8–12x3\nKnebøy 8x3\nHip trust 8x3\nNedtrekk (apparat) 8x3\nSittende roing (apparat) 8x3\nBrystpress (apparat) 8x3\nSkulderhev 3x10\nRumensk markløft 8x3\nUtfall 8x3 per bein\nSittende leg curl 8x3\nBicep curl 3x8\nRygghev 8x3',
     warmup: '30 min gå motbakke',
-    exercises: 'Knebøy 3 x 8\nRumensk markløft 3 x 8\nUtfall 3 x 8 per bein\nSittende leg curl 3 x 8\nNedtrekk (apparat) 3 x 8\nBrystpress (apparat) 3 x 8\nSittende roing (apparat) 3 x 8\nSkulderpress 3 x 8\nBicep curl 3 x 8\nPlanke 3 sett\nRygghev 3 x 8',
+    exercises: 'Leg extension 3 x 8-12\nKnebøy 3 x 8\nHip trust 3 x 8\nNedtrekk (apparat) 3 x 8\nSittende roing (apparat) 3 x 8\nBrystpress (apparat) 3 x 8\nSkulderhev 3 x 10\nRumensk markløft 3 x 8\nUtfall 3 x 8 per bein\nSittende leg curl 3 x 8\nBicep curl 3 x 8\nRygghev 3 x 8',
     rest: '60-90 sek mellom sett',
   },
   {
@@ -179,9 +179,9 @@ export const WORKOUT_TEMPLATES = [
     category: 'Styrke',
     type: 'styrke',
     title: 'Styrke – fullkropp C',
-    description: 'Hip thrust 8x3\nMarkløft 8x3\nLeg extension 8–12x3\nSittende leg curl 8x3\nNedtrekk (apparat) 8x3\nBrystpress (apparat) 8x3\nSittende roing (apparat) 8x3\nSidehev 3x10\nTricep extension (apparat) 3x8\nMage 8x3\nRygghev 8x3',
+    description: 'Leg extension 8–12x3\nKnebøy 8x3\nHip trust 8x3\nNedtrekk (apparat) 8x3\nSittende roing (apparat) 8x3\nBrystpress (apparat) 8x3\nSkulderhev 3x10\nMarkløft 8x3\nSittende leg curl 8x3\nTricep extension (apparat) 3x8\nRygghev 8x3',
     warmup: '30 min gå motbakke',
-    exercises: 'Hip thrust 3 x 8\nMarkløft 3 x 8\nLeg extension 3 x 8-12\nSittende leg curl 3 x 8\nNedtrekk (apparat) 3 x 8\nBrystpress (apparat) 3 x 8\nSittende roing (apparat) 3 x 8\nSidehev 3 x 10\nTricep extension (apparat) 3 x 8\nMage 3 x 8\nRygghev 3 x 8',
+    exercises: 'Leg extension 3 x 8-12\nKnebøy 3 x 8\nHip trust 3 x 8\nNedtrekk (apparat) 3 x 8\nSittende roing (apparat) 3 x 8\nBrystpress (apparat) 3 x 8\nSkulderhev 3 x 10\nMarkløft 3 x 8\nSittende leg curl 3 x 8\nTricep extension (apparat) 3 x 8\nRygghev 3 x 8',
     rest: '60-90 sek mellom sett',
   },
 ]

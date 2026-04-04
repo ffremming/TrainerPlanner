@@ -10,7 +10,7 @@ import {
   getWeekKey,
   getWeekNumber,
   getWeekDates,
-  getWeekSequence,
+  getWeekWindow,
   normalizeWorkout,
 } from './utils'
 import WorkoutCard from './components/WorkoutCard'
@@ -31,9 +31,10 @@ export default function App() {
   const [user, setUser] = useState(undefined)
   const [showLogin, setShowLogin] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showOverview, setShowOverview] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState(null)
 
-  const overviewWeeks = getWeekSequence(currentWeek, currentYear, 8)
+  const overviewWeeks = getWeekWindow(currentWeek, currentYear, 4, 4)
   const overviewWeekKeys = new Set(overviewWeeks.map(week => week.key))
   const selectedWeekKey = getWeekKey(currentWeek, currentYear)
 
@@ -191,22 +192,41 @@ export default function App() {
             </span>
           </div>
           <button className="nav-btn" onClick={nextWeek}>›</button>
+          <button
+            type="button"
+            className={`nav-btn overview-nav-btn${showOverview ? ' active' : ''}`}
+            onClick={() => setShowOverview(prev => !prev)}
+            aria-expanded={showOverview}
+            aria-controls="birds-eye-overview"
+            aria-label="Vis oversikt for siste 4 og neste 4 uker"
+            title="Siste 4 og neste 4 uker"
+          >
+            <span className="overview-icon" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+            </span>
+          </button>
         </div>
       </header>
 
       <main className="main">
-        {overviewLoading ? (
-          <div className="birds-eye-loading">Laster 8 ukers oversikt...</div>
-        ) : (
-          <BirdsEyeOverview
-            weeks={overviewWeeks}
-            workoutsByWeekKey={overviewByWeekKey}
-            selectedWeekKey={selectedWeekKey}
-            onSelectWeek={(week, year) => {
-              setCurrentWeek(week)
-              setCurrentYear(year)
-            }}
-          />
+        {showOverview && (
+          overviewLoading ? (
+            <div className="birds-eye-loading" id="birds-eye-overview">Laster ukeoversikt...</div>
+          ) : (
+            <BirdsEyeOverview
+              weeks={overviewWeeks}
+              workoutsByWeekKey={overviewByWeekKey}
+              selectedWeekKey={selectedWeekKey}
+              onSelectWeek={(week, year) => {
+                setCurrentWeek(week)
+                setCurrentYear(year)
+                setShowOverview(false)
+              }}
+            />
+          )
         )}
 
         {loading ? (
