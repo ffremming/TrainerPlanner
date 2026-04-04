@@ -1,8 +1,28 @@
-import { WORKOUT_TYPES, TEMPLATE_CATEGORIES } from '../utils'
+import {
+  WORKOUT_TYPES,
+  TEMPLATE_CATEGORIES,
+  getAllowedIntensityZones,
+  getDefaultIntensityZone,
+  hasIntensityZone,
+  normalizeIntensityZone,
+} from '../utils'
 
 export default function WorkoutForm({ value, onChange, showCategory = false }) {
+  const isStrengthWorkout = value.type === 'styrke' || value.type === 'molle'
+  const isRunningWorkout = ['interval', 'terskel', 'rolig', 'molle'].includes(value.type)
+  const showIntensityZone = hasIntensityZone(value.type)
+  const allowedZones = getAllowedIntensityZones(value.type)
+
   function set(key, val) {
     onChange({ ...value, [key]: val })
+  }
+
+  function setType(type) {
+    onChange({
+      ...value,
+      type,
+      intensityZone: normalizeIntensityZone(type, value.intensityZone ?? getDefaultIntensityZone(type)),
+    })
   }
 
   return (
@@ -21,7 +41,7 @@ export default function WorkoutForm({ value, onChange, showCategory = false }) {
 
       <label>
         Type
-        <select value={value.type || 'rolig'} onChange={e => set('type', e.target.value)}>
+        <select value={value.type || 'rolig'} onChange={e => setType(e.target.value)}>
           {WORKOUT_TYPES.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
@@ -39,21 +59,23 @@ export default function WorkoutForm({ value, onChange, showCategory = false }) {
         />
       </label>
 
-      <label>
-        Intensitetssone
-        <div className="zone-picker">
-          {[1, 2, 3, 4, 5].map(z => (
-            <button
-              key={z}
-              type="button"
-              className={`zone-btn zone-btn-${z}${value.intensityZone === z ? ' active' : ''}`}
-              onClick={() => set('intensityZone', z)}
-            >
-              Sone {z}
-            </button>
-          ))}
-        </div>
-      </label>
+      {showIntensityZone && (
+        <label>
+          Intensitetssone
+          <div className="zone-picker">
+            {allowedZones.map(z => (
+              <button
+                key={z}
+                type="button"
+                className={`zone-btn zone-btn-${z}${value.intensityZone === z ? ' active' : ''}`}
+                onClick={() => set('intensityZone', z)}
+              >
+                Sone {z}
+              </button>
+            ))}
+          </div>
+        </label>
+      )}
 
       <label>
         Beskrivelse / Økt
@@ -64,6 +86,30 @@ export default function WorkoutForm({ value, onChange, showCategory = false }) {
           rows={4}
         />
       </label>
+
+      {isRunningWorkout && (
+        <>
+          <label>
+            Antall km
+            <input
+              type="text"
+              placeholder="F.eks. 8 km"
+              value={value.distance || ''}
+              onChange={e => set('distance', e.target.value)}
+            />
+          </label>
+
+          <label>
+            Hva skal gjøres
+            <textarea
+              placeholder="F.eks. 4 x 1 km i sone 4 med 2 min pause mellom dragene"
+              value={value.sessionDetails || ''}
+              onChange={e => set('sessionDetails', e.target.value)}
+              rows={3}
+            />
+          </label>
+        </>
+      )}
 
       <label>
         Oppvarming
@@ -84,6 +130,30 @@ export default function WorkoutForm({ value, onChange, showCategory = false }) {
           onChange={e => set('cooldown', e.target.value)}
         />
       </label>
+
+      {isStrengthWorkout && (
+        <>
+          <label>
+            Øvelser
+            <textarea
+              placeholder={'Én øvelse per linje\nF.eks. Knebøy 3 x 8'}
+              value={value.exercises || ''}
+              onChange={e => set('exercises', e.target.value)}
+              rows={6}
+            />
+          </label>
+
+          <label>
+            Pause mellom sett
+            <input
+              type="text"
+              placeholder="F.eks. 60-90 sek"
+              value={value.rest || ''}
+              onChange={e => set('rest', e.target.value)}
+            />
+          </label>
+        </>
+      )}
 
       <label>
         Notater

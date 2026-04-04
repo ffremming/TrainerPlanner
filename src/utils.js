@@ -24,6 +24,15 @@ export const ZONE_COLORS = {
   5: { bg: '#fce4ec', border: '#f48fb1', text: '#880e4f', label: 'Sone 5' },
 }
 
+export const TYPE_COLORS = {
+  rolig:    { bg: '#dbeafe', border: '#60a5fa', text: '#1e40af' },
+  molle:    { bg: '#dbeafe', border: '#60a5fa', text: '#1e40af' },
+  terskel:  { bg: '#dcfce7', border: '#4ade80', text: '#166534' },
+  interval: { bg: '#ffedd5', border: '#fb923c', text: '#9a3412' },
+  styrke:   { bg: '#fce7f3', border: '#f472b6', text: '#9d174d' },
+  annet:    { bg: '#f3f4f6', border: '#9ca3af', text: '#374151' },
+}
+
 export const WORKOUT_TYPES = [
   { value: 'interval', label: 'Intervall' },
   { value: 'terskel', label: 'Terskel' },
@@ -48,6 +57,50 @@ export const ZONE_INFO = {
   3: { hr: '177–187', rpe: 'Behagelig anstrengende', breathing: 'Kan si korte setninger' },
   4: { hr: '188–197', rpe: 'Anstrengende', breathing: 'Kan si noen ord eller svært korte setninger' },
   5: { hr: '198–215', rpe: 'Veldig anstrengende', breathing: 'Kan kun si ett ord eller to, samtidig som man puster tungt' },
+}
+
+export function hasIntensityZone(type) {
+  return type !== 'styrke'
+}
+
+export function getAllowedIntensityZones(type) {
+  if (!hasIntensityZone(type)) return []
+  if (type === 'interval' || type === 'terskel') return [3, 4]
+  return [1, 2, 3, 4]
+}
+
+export function getDefaultIntensityZone(type) {
+  if (!hasIntensityZone(type)) return null
+  if (type === 'interval' || type === 'terskel') return 3
+  return 2
+}
+
+export function normalizeIntensityZone(type, intensityZone) {
+  const allowedZones = getAllowedIntensityZones(type)
+  if (allowedZones.length === 0) return null
+
+  const parsedZone = Number(intensityZone)
+  if (allowedZones.includes(parsedZone)) return parsedZone
+  if (parsedZone === 5 && allowedZones.includes(4)) return 4
+
+  return getDefaultIntensityZone(type)
+}
+
+export function normalizeWorkout(workout) {
+  return {
+    ...workout,
+    intensityZone: normalizeIntensityZone(workout.type, workout.intensityZone),
+    userComment: workout.userComment || '',
+  }
+}
+
+export function getIntensityZoneLabel(workout) {
+  if (workout.type === 'rolig' && workout.title === 'Rolig jogg') {
+    return 'Sone 1-2'
+  }
+
+  const zone = normalizeIntensityZone(workout.type, workout.intensityZone)
+  return zone ? ZONE_COLORS[zone].label : null
 }
 
 export const TEMPLATE_CATEGORIES = [

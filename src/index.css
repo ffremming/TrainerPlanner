@@ -278,6 +278,31 @@ html, body {
   color: #fff;
 }
 
+.detail-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-list li {
+  position: relative;
+  padding-left: 1rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.detail-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 /* ─── Empty State ─── */
 .empty-state {
   text-align: center;
@@ -444,6 +469,46 @@ html, body {
 .workout-desc {
   font-size: 0.95rem;
   font-weight: 500;
+}
+
+.workout-comment-input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: #fff;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.workout-comment-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.comment-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.btn-save-comment {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-save-comment:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .zone-stats {

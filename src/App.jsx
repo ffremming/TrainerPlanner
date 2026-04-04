@@ -5,7 +5,7 @@ import {
   updateDoc, deleteDoc, doc, serverTimestamp
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
-import { getWeekNumber, getWeekDates } from './utils'
+import { getWeekNumber, getWeekDates, normalizeWorkout } from './utils'
 import WorkoutCard from './components/WorkoutCard'
 import WorkoutDetail from './components/WorkoutDetail'
 import Login from './components/Login'
@@ -37,13 +37,23 @@ export default function App() {
     )
     const unsub = onSnapshot(q, snap => {
       const docs = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+        .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       setWorkouts(docs)
       setLoading(false)
     })
     return unsub
   }, [currentWeek, currentYear])
+
+  useEffect(() => {
+    if (!selectedWorkout) return
+    const freshWorkout = workouts.find(w => w.id === selectedWorkout.id)
+    if (freshWorkout) {
+      setSelectedWorkout(freshWorkout)
+      return
+    }
+    setSelectedWorkout(null)
+  }, [workouts, selectedWorkout])
 
   function prevWeek() {
     if (currentWeek === 1) { setCurrentWeek(52); setCurrentYear(y => y - 1) }
@@ -67,6 +77,16 @@ export default function App() {
     })
     if (selectedWorkout?.id === workout.id) {
       setSelectedWorkout(prev => ({ ...prev, completed: !prev.completed }))
+    }
+  }
+
+  async function handleSaveComment(workout, userComment) {
+    await updateDoc(doc(db, 'workouts', workout.id), {
+      userComment,
+      userCommentUpdatedAt: serverTimestamp(),
+    })
+    if (selectedWorkout?.id === workout.id) {
+      setSelectedWorkout(prev => ({ ...prev, userComment }))
     }
   }
 
@@ -154,6 +174,7 @@ export default function App() {
             setSelectedWorkout(null)
           }}
           onToggleComplete={handleToggleComplete}
+          onSaveComment={handleSaveComment}
           onEdit={async (updated) => {
             const { id, ...fields } = updated
             await updateDoc(doc(db, 'workouts', id), fields)

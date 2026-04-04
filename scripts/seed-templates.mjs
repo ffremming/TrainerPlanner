@@ -128,8 +128,22 @@ const TEMPLATES = [
   {
     category: 'Styrke',
     type: 'styrke',
-    title: 'Styrke – fullkropp',
-    description: 'Leg extension 8–12x3\nNedtrekk 8x3\nKnebøy 8x3\nHip trust 8x3\nRyggøv 8x3\nMage 8x3',
+    title: 'Styrke – fullkropp A',
+    description: 'Knebøy 8x3\nMarkløft 8x3\nLeg extension 8–12x3\nSittende leg curl 8x3\nHip thrust 8x3\nNedtrekk (apparat) 8x3\nBrystpress (apparat) 8x3\nSkulderpress 3x8\nSittende roing (apparat) 3x8\nTricep extension (apparat) 3x8\nMage 8x3\nRygghev 8x3',
+    intensityZone: 2,
+  },
+  {
+    category: 'Styrke',
+    type: 'styrke',
+    title: 'Styrke – fullkropp B',
+    description: 'Knebøy 8x3\nRumensk markløft 8x3\nUtfall 8x3 per bein\nSittende leg curl 8x3\nNedtrekk (apparat) 8x3\nBrystpress (apparat) 8x3\nSittende roing (apparat) 8x3\nSkulderpress 3x8\nBicep curl 3x8\nPlanke 3 sett\nRygghev 8x3',
+    intensityZone: 2,
+  },
+  {
+    category: 'Styrke',
+    type: 'styrke',
+    title: 'Styrke – fullkropp C',
+    description: 'Hip thrust 8x3\nMarkløft 8x3\nLeg extension 8–12x3\nSittende leg curl 8x3\nNedtrekk (apparat) 8x3\nBrystpress (apparat) 8x3\nSittende roing (apparat) 8x3\nSidehev 3x10\nTricep extension (apparat) 3x8\nMage 8x3\nRygghev 8x3',
     intensityZone: 2,
   },
 ]

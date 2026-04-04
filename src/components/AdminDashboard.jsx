@@ -5,7 +5,19 @@ import {
 } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '../firebase'
-import { getWeekNumber, getWeekDates, ZONE_COLORS, TYPE_ICONS, WORKOUT_TYPES, TEMPLATE_CATEGORIES } from '../utils'
+import {
+  getWeekNumber,
+  getWeekDates,
+  ZONE_COLORS,
+  TYPE_COLORS,
+  TYPE_ICONS,
+  TEMPLATE_CATEGORIES,
+  getDefaultIntensityZone,
+  getIntensityZoneLabel,
+  normalizeIntensityZone,
+  normalizeWorkout,
+} from '../utils'
+import { WORKOUT_TEMPLATES } from '../workoutTemplates'
 import WorkoutForm from './WorkoutForm'
 import WorkoutDetail from './WorkoutDetail'
 
@@ -20,10 +32,14 @@ const EMPTY_TEMPLATE = {
   type: 'interval',
   title: '',
   description: '',
+  distance: '',
+  sessionDetails: '',
   warmup: '',
   cooldown: '',
+  exercises: '',
+  rest: '',
   notes: '',
-  intensityZone: 3,
+  intensityZone: getDefaultIntensityZone('interval'),
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────
@@ -64,7 +80,7 @@ export default function AdminDashboard({ user, onClose }) {
     )
     const unsub = onSnapshot(q, snap => {
       const docs = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+        .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       setWorkouts(docs)
       setLoadingWorkouts(false)
@@ -72,12 +88,32 @@ export default function AdminDashboard({ user, onClose }) {
     return unsub
   }, [currentWeek, currentYear])
 
+  useEffect(() => {
+    if (!selectedWorkout) return
+    const freshWorkout = workouts.find(w => w.id === selectedWorkout.id)
+    if (freshWorkout) {
+      setSelectedWorkout(freshWorkout)
+      return
+    }
+    setSelectedWorkout(null)
+  }, [workouts, selectedWorkout])
+
   // ─── Templates listener ───
   useEffect(() => {
     setLoadingTemplates(true)
-    const unsub = onSnapshot(collection(db, 'templates'), snap => {
+    const unsub = onSnapshot(collection(db, 'templates'), async snap => {
+      if (snap.empty) {
+        const batch = writeBatch(db)
+        WORKOUT_TEMPLATES.forEach(template => {
+          const ref = doc(collection(db, 'templates'))
+          const { id, ...fields } = template
+          batch.set(ref, { ...fields, createdAt: serverTimestamp() })
+        })
+        await batch.commit()
+        return
+      }
       const docs = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+        .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
         .sort((a, b) => {
           const catOrder = TEMPLATE_CATEGORIES.indexOf(a.category) - TEMPLATE_CATEGORIES.indexOf(b.category)
           return catOrder !== 0 ? catOrder : (a.title || '').localeCompare(b.title || '')
@@ -103,6 +139,7 @@ export default function AdminDashboard({ user, onClose }) {
     const nextOrder = workouts.length > 0 ? Math.max(...workouts.map(w => w.order ?? 0)) + 1 : 1
     await addDoc(collection(db, 'workouts'), {
       ...fields,
+      intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
       week: currentWeek,
       year: currentYear,
       order: nextOrder,
@@ -127,7 +164,10 @@ export default function AdminDashboard({ user, onClose }) {
 
   async function handleEditWorkout(updated) {
     const { id, ...fields } = updated
-    await updateDoc(doc(db, 'workouts', id), fields)
+    await updateDoc(doc(db, 'workouts', id), {
+      ...fields,
+      intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+    })
     setSelectedWorkout(null)
   }
 
@@ -144,6 +184,16 @@ export default function AdminDashboard({ user, onClose }) {
     })
     if (selectedWorkout?.id === workout.id) {
       setSelectedWorkout(prev => ({ ...prev, completed: !prev.completed }))
+    }
+  }
+
+  async function handleSaveComment(workout, userComment) {
+    await updateDoc(doc(db, 'workouts', workout.id), {
+      userComment,
+      userCommentUpdatedAt: serverTimestamp(),
+    })
+    if (selectedWorkout?.id === workout.id) {
+      setSelectedWorkout(prev => ({ ...prev, userComment }))
     }
   }
 
@@ -175,11 +225,15 @@ export default function AdminDashboard({ user, onClose }) {
     if (editingTemplate === 'new') {
       await addDoc(collection(db, 'templates'), {
         ...templateForm,
+        intensityZone: normalizeIntensityZone(templateForm.type, templateForm.intensityZone),
         createdAt: serverTimestamp(),
       })
     } else {
       const { id, ...fields } = templateForm
-      await updateDoc(doc(db, 'templates', editingTemplate.id), fields)
+      await updateDoc(doc(db, 'templates', editingTemplate.id), {
+        ...fields,
+        intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+      })
     }
     setEditingTemplate(null)
   }
@@ -390,6 +444,7 @@ export default function AdminDashboard({ user, onClose }) {
           isAdmin
           onDelete={handleDeleteWorkout}
           onToggleComplete={handleToggleComplete}
+          onSaveComment={handleSaveComment}
           onEdit={handleEditWorkout}
         />
       )}
@@ -400,13 +455,13 @@ export default function AdminDashboard({ user, onClose }) {
 // ─── Admin Workout Row ─────────────────────────────────────────────────────
 
 function AdminWorkoutRow({ workout, index, total, onClick, onDelete, onToggleComplete, onMoveUp, onMoveDown }) {
-  const colors = ZONE_COLORS[workout.intensityZone || 1]
+  const typeColors = TYPE_COLORS[workout.type] || TYPE_COLORS.annet
   const icon = TYPE_ICONS[workout.type] || '📋'
 
   return (
     <div
       className={`admin-workout-row${workout.completed ? ' completed' : ''}`}
-      style={{ borderLeftColor: colors.border }}
+      style={{ borderLeftColor: typeColors.border }}
     >
       <div className="admin-row-reorder">
         <button
@@ -449,13 +504,16 @@ function AdminWorkoutRow({ workout, index, total, onClick, onDelete, onToggleCom
 // ─── Template Card ─────────────────────────────────────────────────────────
 
 function TemplateCard({ template, pickMode, onPick, onEdit, onDelete }) {
-  const colors = ZONE_COLORS[template.intensityZone || 2]
+  const typeColors = TYPE_COLORS[template.type] || TYPE_COLORS.annet
+  const zone = normalizeIntensityZone(template.type, template.intensityZone)
+  const zoneColors = ZONE_COLORS[zone]
+  const zoneLabel = getIntensityZoneLabel(template)
   const icon = TYPE_ICONS[template.type] || '📋'
 
   return (
     <div
       className="template-card"
-      style={{ backgroundColor: colors.bg, borderLeftColor: colors.border }}
+      style={{ backgroundColor: typeColors.bg, borderLeftColor: typeColors.border }}
     >
       <div className="template-card-top">
         <div className="template-card-left">
@@ -467,12 +525,14 @@ function TemplateCard({ template, pickMode, onPick, onEdit, onDelete }) {
             )}
           </div>
         </div>
-        <span
-          className="zone-badge"
-          style={{ backgroundColor: colors.border, color: colors.text }}
-        >
-          {colors.label}
-        </span>
+        {zone && zoneLabel && (
+          <span
+            className="zone-badge"
+            style={{ backgroundColor: zoneColors.border, color: zoneColors.text }}
+          >
+            {zoneLabel}
+          </span>
+        )}
       </div>
 
       {template.description && (

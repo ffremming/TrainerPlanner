@@ -1,8 +1,9 @@
-import { ZONE_COLORS, TYPE_ICONS } from '../utils'
+import { ZONE_COLORS, TYPE_COLORS, TYPE_ICONS, normalizeIntensityZone } from '../utils'
 
 export default function WorkoutCard({ workout, index, onClick, onToggleComplete }) {
-  const zone = workout.intensityZone || 1
-  const colors = ZONE_COLORS[zone]
+  const zone = normalizeIntensityZone(workout.type, workout.intensityZone)
+  const zoneColors = ZONE_COLORS[zone]
+  const colors = TYPE_COLORS[workout.type] || TYPE_COLORS.annet
   const icon = TYPE_ICONS[workout.type] || '📋'
 
   function handleCheck(e) {
@@ -27,12 +28,14 @@ export default function WorkoutCard({ workout, index, onClick, onToggleComplete 
         </div>
       </div>
       <div className="card-right">
-        <span
-          className="zone-badge"
-          style={{ backgroundColor: colors.border, color: colors.text }}
-        >
-          {colors.label}
-        </span>
+        {zone && (
+          <span
+            className="zone-badge"
+            style={{ backgroundColor: zoneColors.border, color: zoneColors.text }}
+          >
+            {zoneColors.label}
+          </span>
+        )}
         <button
           className={`check-btn${workout.completed ? ' checked' : ''}`}
           onClick={handleCheck}

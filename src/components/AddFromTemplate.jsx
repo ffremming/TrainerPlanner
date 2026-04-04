@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ZONE_COLORS, WORKOUT_TYPES } from '../utils'
+import { ZONE_COLORS, WORKOUT_TYPES, getAllowedIntensityZones, hasIntensityZone, normalizeIntensityZone } from '../utils'
 
 export default function AddFromTemplate({ template, initialDate, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -7,25 +7,39 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
     type: template.type,
     title: template.title,
     description: template.description || '',
+    distance: template.distance || '',
+    sessionDetails: template.sessionDetails || '',
     warmup: template.warmup || '',
     cooldown: template.cooldown || '',
+    exercises: template.exercises || '',
+    rest: template.rest || '',
     notes: template.notes || '',
-    intensityZone: template.intensityZone || 2,
+    intensityZone: normalizeIntensityZone(template.type, template.intensityZone),
   })
 
   function set(key, value) {
     setForm(f => ({ ...f, [key]: value }))
   }
 
+  function setType(type) {
+    setForm(f => ({
+      ...f,
+      type,
+      intensityZone: normalizeIntensityZone(type, f.intensityZone),
+    }))
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
-    onSave({ ...form, intensityZone: Number(form.intensityZone) })
+    onSave({ ...form, intensityZone: normalizeIntensityZone(form.type, form.intensityZone) })
   }
 
   function handleBackdrop(e) {
     if (e.target === e.currentTarget) onClose()
   }
 
+  const showIntensityZone = hasIntensityZone(form.type)
+  const allowedZones = getAllowedIntensityZones(form.type)
   const colors = ZONE_COLORS[form.intensityZone]
 
   return (
@@ -47,7 +61,7 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
 
           <label>
             Type
-            <select value={form.type} onChange={e => set('type', e.target.value)}>
+            <select value={form.type} onChange={e => setType(e.target.value)}>
               {WORKOUT_TYPES.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
@@ -64,21 +78,23 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
             />
           </label>
 
-          <label>
-            Intensitetssone
-            <div className="zone-picker">
-              {[1, 2, 3, 4, 5].map(z => (
-                <button
-                  key={z}
-                  type="button"
-                  className={`zone-btn zone-btn-${z}${form.intensityZone === z ? ' active' : ''}`}
-                  onClick={() => set('intensityZone', z)}
-                >
-                  Sone {z}
-                </button>
-              ))}
-            </div>
-          </label>
+          {showIntensityZone && (
+            <label>
+              Intensitetssone
+              <div className="zone-picker">
+                {allowedZones.map(z => (
+                  <button
+                    key={z}
+                    type="button"
+                    className={`zone-btn zone-btn-${z}${form.intensityZone === z ? ' active' : ''}`}
+                    onClick={() => set('intensityZone', z)}
+                  >
+                    Sone {z}
+                  </button>
+                ))}
+              </div>
+            </label>
+          )}
 
           <label>
             Beskrivelse / Økt

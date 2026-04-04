@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { WORKOUT_TYPES } from '../utils'
+import { WORKOUT_TYPES, getAllowedIntensityZones, getDefaultIntensityZone, hasIntensityZone, normalizeIntensityZone } from '../utils'
 
 const DEFAULT_FORM = {
   date: new Date().toISOString().split('T')[0],
   type: 'interval',
   title: '',
   description: '',
+  distance: '',
+  sessionDetails: '',
   warmup: '',
   cooldown: '',
+  exercises: '',
+  rest: '',
   notes: '',
-  intensityZone: 3,
+  intensityZone: getDefaultIntensityZone('interval'),
 }
 
 export default function AddWorkout({ onSave, onClose, initialDate }) {
@@ -22,15 +26,26 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
     setForm(f => ({ ...f, [key]: value }))
   }
 
+  function setType(type) {
+    setForm(f => ({
+      ...f,
+      type,
+      intensityZone: normalizeIntensityZone(type, f.intensityZone),
+    }))
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
     if (!form.title.trim() || !form.date) return
-    onSave({ ...form, intensityZone: Number(form.intensityZone) })
+    onSave({ ...form, intensityZone: normalizeIntensityZone(form.type, form.intensityZone) })
   }
 
   function handleBackdrop(e) {
     if (e.target === e.currentTarget) onClose()
   }
+
+  const showIntensityZone = hasIntensityZone(form.type)
+  const allowedZones = getAllowedIntensityZones(form.type)
 
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
@@ -51,7 +66,7 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
 
           <label>
             Type
-            <select value={form.type} onChange={e => set('type', e.target.value)}>
+            <select value={form.type} onChange={e => setType(e.target.value)}>
               {WORKOUT_TYPES.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
@@ -69,21 +84,23 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
             />
           </label>
 
-          <label>
-            Intensitetssone
-            <div className="zone-picker">
-              {[1, 2, 3, 4, 5].map(z => (
-                <button
-                  key={z}
-                  type="button"
-                  className={`zone-btn zone-btn-${z}${form.intensityZone === z ? ' active' : ''}`}
-                  onClick={() => set('intensityZone', z)}
-                >
-                  Sone {z}
-                </button>
-              ))}
-            </div>
-          </label>
+          {showIntensityZone && (
+            <label>
+              Intensitetssone
+              <div className="zone-picker">
+                {allowedZones.map(z => (
+                  <button
+                    key={z}
+                    type="button"
+                    className={`zone-btn zone-btn-${z}${form.intensityZone === z ? ' active' : ''}`}
+                    onClick={() => set('intensityZone', z)}
+                  >
+                    Sone {z}
+                  </button>
+                ))}
+              </div>
+            </label>
+          )}
 
           <label>
             Beskrivelse / Økt
