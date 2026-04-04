@@ -899,6 +899,131 @@ html, body {
   overflow: hidden;
 }
 
+/* ─── Card index badge ─── */
+.card-index {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(0,0,0,0.07);
+  border-radius: 50%;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ─── Edit button in modal ─── */
+.btn-edit {
+  background: #f0f4ff;
+  color: var(--accent);
+  border: none;
+  border-radius: 12px;
+  padding: 0.8rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* ─── Admin scroll area ─── */
+.admin-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ─── Reorder buttons ─── */
+.admin-row-reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.reorder-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 1.5rem;
+  height: 1.25rem;
+  font-size: 0.65rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+}
+
+.reorder-btn:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.reorder-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+/* ─── Template card (new layout) ─── */
+.template-card {
+  cursor: default;
+}
+
+.template-card-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.template-category {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+.template-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.btn-template-pick {
+  flex: 1;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-template-edit {
+  flex: 1;
+  background: #f0f4ff;
+  color: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-template-delete {
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* ─── Desktop tweaks ─── */
 @media (min-width: 600px) {
   .modal {

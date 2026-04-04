@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import {
   collection, query, where, onSnapshot,
-  updateDoc, doc, serverTimestamp
+  updateDoc, deleteDoc, doc, serverTimestamp
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 import { getWeekNumber, getWeekDates } from './utils'
@@ -150,8 +150,7 @@ export default function App() {
           onClose={() => setSelectedWorkout(null)}
           isAdmin={isAdmin}
           onDelete={async (w) => {
-            const { deleteDoc, doc: d } = await import('firebase/firestore')
-            await deleteDoc(d(db, 'workouts', w.id))
+            await deleteDoc(doc(db, 'workouts', w.id))
             setSelectedWorkout(null)
           }}
           onToggleComplete={handleToggleComplete}
