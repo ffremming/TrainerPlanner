@@ -16,10 +16,6 @@ export function getWeekDates(week, year) {
   return { monday, sunday }
 }
 
-export function isoDate(date) {
-  return date.toISOString().split('T')[0]
-}
-
 export const ZONE_COLORS = {
   1: { bg: '#e8f4fd', border: '#90caf9', text: '#1565c0', label: 'Sone 1' },
   2: { bg: '#e8f8e8', border: '#81c784', text: '#2e7d32', label: 'Sone 2' },
@@ -54,11 +50,11 @@ export const ZONE_INFO = {
   5: { hr: '198–215', rpe: 'Veldig anstrengende', breathing: 'Kan kun si ett ord eller to, samtidig som man puster tungt' },
 }
 
-const NO_DAYS = ['Søn', 'Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør']
-const NO_MONTHS = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des']
-
-export function formatDate(isoString) {
-  const [year, month, day] = isoString.split('-').map(Number)
-  const d = new Date(year, month - 1, day)
-  return `${NO_DAYS[d.getDay()]} ${d.getDate()}. ${NO_MONTHS[d.getMonth()]}`
-}
+export const TEMPLATE_CATEGORIES = [
+  'Intervall',
+  'Terskel',
+  'Rolig',
+  'Mølle + styrke',
+  'Styrke',
+  'Annet',
+]

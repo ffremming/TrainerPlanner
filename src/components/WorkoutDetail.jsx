@@ -1,6 +1,11 @@
-import { ZONE_COLORS, ZONE_INFO, TYPE_ICONS, WORKOUT_TYPES, formatDate } from '../utils'
+import { useState } from 'react'
+import { ZONE_COLORS, ZONE_INFO, TYPE_ICONS, WORKOUT_TYPES } from '../utils'
+import WorkoutForm from './WorkoutForm'
 
-export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onToggleComplete }) {
+export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onToggleComplete, onEdit }) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ ...workout })
+
   if (!workout) return null
 
   const zone = workout.intensityZone || 1
@@ -13,6 +18,30 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
     if (e.target === e.currentTarget) onClose()
   }
 
+  function handleSave(e) {
+    e.preventDefault()
+    onEdit(form)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="modal-backdrop" onClick={handleBackdrop}>
+        <div className="modal add-modal">
+          <button className="modal-close" onClick={() => setEditing(false)}>✕</button>
+          <h2 className="modal-title-h2">Rediger økt</h2>
+          <form onSubmit={handleSave}>
+            <WorkoutForm value={form} onChange={setForm} />
+            <div className="form-actions" style={{ marginTop: '1rem' }}>
+              <button type="button" className="btn-cancel" onClick={() => setEditing(false)}>Avbryt</button>
+              <button type="submit" className="btn-save">Lagre</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
       <div className="modal" style={{ borderTop: `4px solid ${colors.border}` }}>
@@ -21,7 +50,6 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
         <div className="modal-header">
           <span className="modal-icon">{icon}</span>
           <div>
-            <div className="modal-date">{formatDate(workout.date)}</div>
             <div className="modal-title">{workout.title}</div>
             <div className="modal-type">{typeLabel}</div>
           </div>
@@ -30,7 +58,7 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
         {workout.description && (
           <div className="modal-section">
             <div className="section-label">Treningsøkt</div>
-            <div className="section-content workout-desc">{workout.description}</div>
+            <div className="section-content workout-desc" style={{ whiteSpace: 'pre-line' }}>{workout.description}</div>
           </div>
         )}
 
@@ -51,7 +79,7 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
         {workout.notes && (
           <div className="modal-section">
             <div className="section-label">Notater</div>
-            <div className="section-content">{workout.notes}</div>
+            <div className="section-content" style={{ whiteSpace: 'pre-line' }}>{workout.notes}</div>
           </div>
         )}
 
@@ -73,9 +101,10 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
             {workout.completed ? '✓ Fullført!' : 'Marker som fullført'}
           </button>
           {isAdmin && (
-            <button className="btn-delete" onClick={() => onDelete(workout)}>
-              Slett
-            </button>
+            <button className="btn-edit" onClick={() => setEditing(true)}>✏️</button>
+          )}
+          {isAdmin && (
+            <button className="btn-delete" onClick={() => onDelete(workout)}>🗑</button>
           )}
         </div>
       </div>

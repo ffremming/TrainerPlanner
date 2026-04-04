@@ -1,6 +1,6 @@
-import { ZONE_COLORS, TYPE_ICONS, formatDate } from '../utils'
+import { ZONE_COLORS, TYPE_ICONS } from '../utils'
 
-export default function WorkoutCard({ workout, onClick, isAdmin, onToggleComplete }) {
+export default function WorkoutCard({ workout, index, onClick, onToggleComplete }) {
   const zone = workout.intensityZone || 1
   const colors = ZONE_COLORS[zone]
   const icon = TYPE_ICONS[workout.type] || '📋'
@@ -17,11 +17,13 @@ export default function WorkoutCard({ workout, onClick, isAdmin, onToggleComplet
       onClick={() => onClick(workout)}
     >
       <div className="card-left">
+        <span className="card-index">{index + 1}</span>
         <span className="card-icon">{icon}</span>
         <div className="card-info">
-          <span className="card-date">{formatDate(workout.date)}</span>
           <span className="card-title">{workout.title}</span>
-          <span className="card-desc">{workout.description}</span>
+          {workout.description && (
+            <span className="card-desc">{workout.description}</span>
+          )}
         </div>
       </div>
       <div className="card-right">
