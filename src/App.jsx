@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import {
   collection, query, where, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc, serverTimestamp
+  updateDoc, doc, serverTimestamp
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
-import { getWeekNumber, getWeekDates, isoDate } from './utils'
+import { getWeekNumber, getWeekDates } from './utils'
 import WorkoutCard from './components/WorkoutCard'
 import WorkoutDetail from './components/WorkoutDetail'
-import AddWorkout from './components/AddWorkout'
 import Login from './components/Login'
 import AdminDashboard from './components/AdminDashboard'
 
@@ -19,38 +18,32 @@ export default function App() {
   const [workouts, setWorkouts] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const [user, setUser] = useState(undefined) // undefined = checking, null = not logged in
+  const [user, setUser] = useState(undefined)
   const [showLogin, setShowLogin] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState(null)
-  const [showAdd, setShowAdd] = useState(false)
 
-  // Firebase Auth listener
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setUser(u))
     return unsub
   }, [])
 
-  const { monday, sunday } = getWeekDates(currentWeek, currentYear)
-  const mondayStr = isoDate(monday)
-  const sundayStr = isoDate(sunday)
-
   useEffect(() => {
     setLoading(true)
     const q = query(
       collection(db, 'workouts'),
-      where('date', '>=', mondayStr),
-      where('date', '<=', sundayStr)
+      where('year', '==', currentYear),
+      where('week', '==', currentWeek)
     )
     const unsub = onSnapshot(q, snap => {
       const docs = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => a.date.localeCompare(b.date))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       setWorkouts(docs)
       setLoading(false)
     })
     return unsub
-  }, [mondayStr, sundayStr])
+  }, [currentWeek, currentYear])
 
   function prevWeek() {
     if (currentWeek === 1) { setCurrentWeek(52); setCurrentYear(y => y - 1) }
@@ -67,18 +60,8 @@ export default function App() {
     setCurrentYear(today.getFullYear())
   }
 
-  async function handleSaveWorkout(form) {
-    await addDoc(collection(db, 'workouts'), {
-      ...form,
-      completed: false,
-      createdAt: serverTimestamp(),
-    })
-    setShowAdd(false)
-  }
-
   async function handleToggleComplete(workout) {
-    const ref = doc(db, 'workouts', workout.id)
-    await updateDoc(ref, {
+    await updateDoc(doc(db, 'workouts', workout.id), {
       completed: !workout.completed,
       completedAt: !workout.completed ? serverTimestamp() : null,
     })
@@ -87,24 +70,13 @@ export default function App() {
     }
   }
 
-  async function handleDelete(workout) {
-    if (!window.confirm(`Slett "${workout.title}"?`)) return
-    await deleteDoc(doc(db, 'workouts', workout.id))
-    setSelectedWorkout(null)
-  }
-
+  const { monday, sunday } = getWeekDates(currentWeek, currentYear)
   const doneCount = workouts.filter(w => w.completed).length
   const isThisWeek = currentWeek === getWeekNumber(today) && currentYear === today.getFullYear()
   const isAdmin = !!user
 
-  // Show admin dashboard as full-screen page
   if (showAdmin && isAdmin) {
-    return (
-      <AdminDashboard
-        user={user}
-        onClose={() => setShowAdmin(false)}
-      />
-    )
+    return <AdminDashboard user={user} onClose={() => setShowAdmin(false)} />
   }
 
   return (
@@ -113,19 +85,11 @@ export default function App() {
         <div className="header-top">
           <h1 className="app-title">Treningsplan</h1>
           {user === undefined ? null : user ? (
-            <button
-              className="admin-btn active"
-              onClick={() => setShowAdmin(true)}
-              title="Åpne admin"
-            >
+            <button className="admin-btn active" onClick={() => setShowAdmin(true)} title="Admin">
               ⚙️
             </button>
           ) : (
-            <button
-              className="admin-btn"
-              onClick={() => setShowLogin(true)}
-              title="Admin-pålogging"
-            >
+            <button className="admin-btn" onClick={() => setShowLogin(true)} title="Logg inn">
               🔒
             </button>
           )}
@@ -153,11 +117,6 @@ export default function App() {
           <div className="empty-state">
             <div className="empty-icon">🏃</div>
             <div>Ingen økter denne uken</div>
-            {isAdmin && (
-              <button className="btn-add-empty" onClick={() => setShowAdd(true)}>
-                + Legg til økt
-              </button>
-            )}
           </div>
         ) : (
           <>
@@ -171,12 +130,12 @@ export default function App() {
               </div>
             </div>
             <div className="workout-list">
-              {workouts.map(w => (
+              {workouts.map((w, idx) => (
                 <WorkoutCard
                   key={w.id}
                   workout={w}
+                  index={idx}
                   onClick={setSelectedWorkout}
-                  isAdmin={isAdmin}
                   onToggleComplete={handleToggleComplete}
                 />
               ))}
@@ -185,31 +144,26 @@ export default function App() {
         )}
       </main>
 
-      {isAdmin && (
-        <button className="fab" onClick={() => setShowAdd(true)}>+</button>
-      )}
-
       {selectedWorkout && (
         <WorkoutDetail
           workout={selectedWorkout}
           onClose={() => setSelectedWorkout(null)}
           isAdmin={isAdmin}
-          onDelete={handleDelete}
+          onDelete={async (w) => {
+            const { deleteDoc, doc: d } = await import('firebase/firestore')
+            await deleteDoc(d(db, 'workouts', w.id))
+            setSelectedWorkout(null)
+          }}
           onToggleComplete={handleToggleComplete}
+          onEdit={async (updated) => {
+            const { id, ...fields } = updated
+            await updateDoc(doc(db, 'workouts', id), fields)
+            setSelectedWorkout(null)
+          }}
         />
       )}
 
-      {showAdd && (
-        <AddWorkout
-          onSave={handleSaveWorkout}
-          onClose={() => setShowAdd(false)}
-          initialDate={mondayStr}
-        />
-      )}
-
-      {showLogin && (
-        <Login onClose={() => setShowLogin(false)} />
-      )}
+      {showLogin && <Login onClose={() => setShowLogin(false)} />}
     </div>
   )
 }
