@@ -143,42 +143,64 @@ export function hasIntensityZone(type) {
 
 export function getAllowedIntensityZones(type) {
   if (!hasIntensityZone(type)) return []
-  if (type === 'interval' || type === 'terskel') return [3, 4]
+  if (type === 'interval' || type === 'terskel') return [3, 4, 5]
   return [1, 2, 3, 4]
 }
 
-export function getDefaultIntensityZone(type) {
-  if (!hasIntensityZone(type)) return null
-  if (type === 'interval' || type === 'terskel') return 3
-  return 2
+export function getDefaultIntensityZones(type) {
+  if (!hasIntensityZone(type)) return []
+  if (type === 'interval' || type === 'terskel') return [3]
+  return [2]
+}
+
+export function normalizeIntensityZones(type, intensityZone) {
+  const allowedZones = getAllowedIntensityZones(type)
+  if (allowedZones.length === 0) return []
+
+  const rawZones = Array.isArray(intensityZone)
+    ? intensityZone
+    : typeof intensityZone === 'string'
+      ? (intensityZone.match(/[1-5]/g) || []).map(Number)
+      : intensityZone == null
+        ? []
+        : [Number(intensityZone)]
+
+  const normalized = [...new Set(
+    rawZones
+      .map(Number)
+      .filter(zone => allowedZones.includes(zone))
+  )].sort((a, b) => a - b)
+
+  return normalized.length > 0 ? normalized : getDefaultIntensityZones(type)
 }
 
 export function normalizeIntensityZone(type, intensityZone) {
-  const allowedZones = getAllowedIntensityZones(type)
-  if (allowedZones.length === 0) return null
+  const zones = normalizeIntensityZones(type, intensityZone)
+  return zones.length > 0 ? zones[zones.length - 1] : null
+}
 
-  const parsedZone = Number(intensityZone)
-  if (allowedZones.includes(parsedZone)) return parsedZone
-  if (parsedZone === 5 && allowedZones.includes(4)) return 4
+export function formatIntensityZoneLabel(zones) {
+  if (!zones || zones.length === 0) return null
+  if (zones.length === 1) return `Sone ${zones[0]}`
 
-  return getDefaultIntensityZone(type)
+  const contiguous = zones.every((zone, index) => index === 0 || zone === zones[index - 1] + 1)
+  if (contiguous) return `Sone ${zones[0]}-${zones[zones.length - 1]}`
+
+  return `Sone ${zones.join(', ')}`
 }
 
 export function normalizeWorkout(workout) {
+  const intensityZones = normalizeIntensityZones(workout.type, workout.intensityZone)
   return {
     ...workout,
-    intensityZone: normalizeIntensityZone(workout.type, workout.intensityZone),
+    intensityZone: intensityZones,
     userComment: workout.userComment || '',
   }
 }
 
 export function getIntensityZoneLabel(workout) {
-  if (workout.type === 'rolig' && workout.title === 'Rolig jogg') {
-    return 'Sone 1-2'
-  }
-
-  const zone = normalizeIntensityZone(workout.type, workout.intensityZone)
-  return zone ? ZONE_COLORS[zone].label : null
+  const zones = normalizeIntensityZones(workout.type, workout.intensityZone)
+  return formatIntensityZoneLabel(zones)
 }
 
 export const TEMPLATE_CATEGORIES = [

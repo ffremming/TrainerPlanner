@@ -13,8 +13,9 @@ import {
   TYPE_COLORS,
   TYPE_ICONS,
   TEMPLATE_CATEGORIES,
-  getDefaultIntensityZone,
+  getDefaultIntensityZones,
   getIntensityZoneLabel,
+  normalizeIntensityZones,
   normalizeIntensityZone,
   normalizeWorkout,
 } from '../utils'
@@ -40,7 +41,7 @@ const EMPTY_TEMPLATE = {
   exercises: '',
   rest: '',
   notes: '',
-  intensityZone: getDefaultIntensityZone('interval'),
+  intensityZone: getDefaultIntensityZones('interval'),
 }
 
 function getBuiltinTemplateDocId(template) {
@@ -64,7 +65,7 @@ function getBuiltinTemplatePayload(template) {
     ...fields,
     templateId: id,
     source: 'builtin',
-    intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+    intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
   }
 }
 
@@ -230,7 +231,7 @@ export default function AdminDashboard({ user, onClose }) {
     const nextOrder = workouts.length > 0 ? Math.max(...workouts.map(w => w.order ?? 0)) + 1 : 1
     await addDoc(collection(db, 'workouts'), {
       ...fields,
-      intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+      intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
       week: currentWeek,
       year: currentYear,
       order: nextOrder,
@@ -257,7 +258,7 @@ export default function AdminDashboard({ user, onClose }) {
       await updateDoc(doc(db, 'workouts', replacementTarget.id), {
         ...EMPTY_TEMPLATE,
         ...fields,
-        intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+        intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
         week: replacementTarget.week,
         year: replacementTarget.year,
         order: replacementTarget.order ?? 0,
@@ -295,7 +296,7 @@ export default function AdminDashboard({ user, onClose }) {
     const { id, ...fields } = updated
     await updateDoc(doc(db, 'workouts', id), {
       ...fields,
-      intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+      intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
     })
     setSelectedWorkout(null)
   }
@@ -355,14 +356,14 @@ export default function AdminDashboard({ user, onClose }) {
       await addDoc(collection(db, 'templates'), {
         ...templateForm,
         source: 'custom',
-        intensityZone: normalizeIntensityZone(templateForm.type, templateForm.intensityZone),
+        intensityZone: normalizeIntensityZones(templateForm.type, templateForm.intensityZone),
         createdAt: serverTimestamp(),
       })
     } else {
       const { id, ...fields } = templateForm
       await updateDoc(doc(db, 'templates', editingTemplate.id), {
         ...fields,
-        intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+        intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
       })
     }
     setEditingTemplate(null)

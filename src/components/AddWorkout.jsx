@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { WORKOUT_TYPES, getAllowedIntensityZones, getDefaultIntensityZone, hasIntensityZone, normalizeIntensityZone } from '../utils'
+import { WORKOUT_TYPES, getAllowedIntensityZones, getDefaultIntensityZones, hasIntensityZone, normalizeIntensityZones } from '../utils'
 
 const DEFAULT_FORM = {
   date: new Date().toISOString().split('T')[0],
@@ -13,7 +13,7 @@ const DEFAULT_FORM = {
   exercises: '',
   rest: '',
   notes: '',
-  intensityZone: getDefaultIntensityZone('interval'),
+  intensityZone: getDefaultIntensityZones('interval'),
 }
 
 export default function AddWorkout({ onSave, onClose, initialDate }) {
@@ -30,14 +30,23 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
     setForm(f => ({
       ...f,
       type,
-      intensityZone: normalizeIntensityZone(type, f.intensityZone),
+      intensityZone: normalizeIntensityZones(type, f.intensityZone),
     }))
+  }
+
+  function toggleIntensityZone(zone) {
+    const currentZones = normalizeIntensityZones(form.type, form.intensityZone)
+    const nextZones = currentZones.includes(zone)
+      ? (currentZones.length > 1 ? currentZones.filter(currentZone => currentZone !== zone) : currentZones)
+      : [...currentZones, zone].sort((a, b) => a - b)
+
+    set('intensityZone', nextZones)
   }
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!form.title.trim() || !form.date) return
-    onSave({ ...form, intensityZone: normalizeIntensityZone(form.type, form.intensityZone) })
+    onSave({ ...form, intensityZone: normalizeIntensityZones(form.type, form.intensityZone) })
   }
 
   function handleBackdrop(e) {
@@ -87,13 +96,14 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
           {showIntensityZone && (
             <label>
               Intensitetssone
+              <div className="field-hint">Velg en eller flere soner</div>
               <div className="zone-picker">
                 {allowedZones.map(z => (
                   <button
                     key={z}
                     type="button"
-                    className={`zone-btn zone-btn-${z}${form.intensityZone === z ? ' active' : ''}`}
-                    onClick={() => set('intensityZone', z)}
+                    className={`zone-btn zone-btn-${z}${normalizeIntensityZones(form.type, form.intensityZone).includes(z) ? ' active' : ''}`}
+                    onClick={() => toggleIntensityZone(z)}
                   >
                     Sone {z}
                   </button>

@@ -630,11 +630,19 @@ html, body {
   cursor: not-allowed;
 }
 
-.zone-stats {
+.zone-multi-stats {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.zone-mini-card {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.85rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid;
+  font-size: 0.8rem;
   color: var(--text);
 }
 
@@ -729,11 +737,13 @@ html, body {
 /* ─── Zone Picker ─── */
 .zone-picker {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
 }
 
 .zone-btn {
-  flex: 1;
+  flex: 1 1 calc(33.333% - 0.4rem);
+  min-width: 4.75rem;
   padding: 0.5rem 0.2rem;
   border-radius: 8px;
   border: 1.5px solid var(--border);
@@ -750,6 +760,12 @@ html, body {
 .zone-btn-3.active { background: #fffde7; border-color: #fff176; color: #f57f17; }
 .zone-btn-4.active { background: #fff3e0; border-color: #ffb74d; color: #e65100; }
 .zone-btn-5.active { background: #fce4ec; border-color: #f48fb1; color: #880e4f; }
+
+.field-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 0.45rem;
+}
 
 /* ─── Form Actions ─── */
 .form-actions {

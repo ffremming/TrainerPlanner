@@ -14,19 +14,6 @@ export const WORKOUT_TEMPLATES = [
     notes: 'Aktfokus: rask intervallakt',
   },
   {
-    id: 'utholdenhet-intervall-1000m',
-    category: 'Intervall',
-    type: 'interval',
-    title: 'Utholdenhet intervall – 1000m',
-    description: '5 x 1000m @ 10 km/t / 6:00 pace, 1 min pause',
-    distance: '8 km',
-    sessionDetails: '5 x 1000 meter @ 10 km/t / 6:00 pace med 1 min pause mellom dragene.',
-    warmup: '2 km rolig oppvarming',
-    cooldown: '1 km nedkjøling',
-    intensityZone: 4,
-    notes: 'Aktfokus: utholdenhet intervallakt',
-  },
-  {
     id: '45-15-3x10',
     category: 'Intervall',
     type: 'interval',
@@ -60,15 +47,15 @@ export const WORKOUT_TEMPLATES = [
   },
   // ─── TERSKEL ───
   {
-    id: 'terskel-4x1km',
-    category: 'Terskel',
-    type: 'terskel',
-    title: 'Terskel – 4x1km',
+    id: 'hard-4x1km',
+    category: 'interval',
+    type: 'interval',
+    title: 'hard – 4x1km',
     description: '4 x 1km @ 11.5 km/t / 5:15 pace, 2 min pause',
     distance: '7 km',
     sessionDetails: '4 x 1 km @ 11.5 km/t / 5:15 pace med 2 min pause.',
     warmup: 'opp: 2, ned: 1, tot: 7',
-    intensityZone: 4,
+    intensityZone: [4, 5],
   },
   {
     id: 'terskel-3x2km',
@@ -90,6 +77,28 @@ export const WORKOUT_TEMPLATES = [
     sessionDetails: '4 x 2 km @ 9–10 km/t med 2 min pause.',
     intensityZone: 4,
   },
+  {
+    id: 'terskel-5x6min',
+    category: 'Terskel',
+    type: 'terskel',
+    title: 'Terskel – 5x6 min',
+    description: '5 x 6 min i sone 3, 1 min pause',
+    sessionDetails: '5 x 6 min i sone 3 med 1 min pause mellom dragene.',
+    warmup: '2 km rolig oppvarming',
+    cooldown: '1 km rolig nedjogg',
+    intensityZone: 3,
+  },
+  {
+    id: 'hardt-5x4min',
+    category: 'Intervall',
+    type: 'interval',
+    title: 'Hardt – 5x4 min',
+    description: '5 x 4 min i sone 4-5, 2 min pause',
+    sessionDetails: '5 x 4 min hardt i sone 4-5 med 2 min pause mellom dragene.',
+    warmup: '2 km rolig oppvarming',
+    cooldown: '1 km rolig nedjogg',
+    intensityZone: [4, 5],
+  },
   // ─── ROLIG ───
   {
     id: 'rolig ',
@@ -98,7 +107,7 @@ export const WORKOUT_TEMPLATES = [
     title: 'Rolig jogg',
     description: 'Rolig jogg, sone 1–2',
     sessionDetails: 'Rolig jogg i sone 1-2. Hold pratenivå hele veien.',
-    intensityZone: 2,
+    intensityZone: [1, 2],
   },
   {
     id: 'rolig langtur',
@@ -108,7 +117,7 @@ export const WORKOUT_TEMPLATES = [
     description: 'Sone 1–2 rolig 10 km',
     distance: '6 km',
     sessionDetails: 'Rolig løping i sone 1-2 over 10 km.',
-    intensityZone: 2,
+    intensityZone: [1, 2],
   },
   {
     id: 'kontinuerlig tempo',
@@ -117,7 +126,7 @@ export const WORKOUT_TEMPLATES = [
     title: 'Kontinuerlig tempo',
     description: '30 min kontinuerlig. Starte på 9 km/t, øke gradvis. Start i lav sone 3, avslutte i lav/moderat sone 4.',
     sessionDetails: '30 min kontinuerlig på mølle. Start på 9 km/t og øk gradvis. Start i lav sone 3 og avslutt i lav/moderat sone 4.',
-    intensityZone: 3,
+    intensityZone: [3, 4],
   },
   // ─── MØLLE + STYRKE ───
   {

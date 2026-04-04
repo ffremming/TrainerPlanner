@@ -1,8 +1,9 @@
-import { ZONE_COLORS, TYPE_COLORS, TYPE_ICONS, normalizeIntensityZone } from '../utils'
+import { ZONE_COLORS, TYPE_COLORS, TYPE_ICONS, getIntensityZoneLabel, normalizeIntensityZone } from '../utils'
 
 export default function WorkoutCard({ workout, index, onClick, onToggleComplete }) {
   const zone = normalizeIntensityZone(workout.type, workout.intensityZone)
-  const zoneColors = ZONE_COLORS[zone]
+  const zoneColors = zone ? ZONE_COLORS[zone] : null
+  const zoneLabel = getIntensityZoneLabel(workout)
   const colors = TYPE_COLORS[workout.type] || TYPE_COLORS.annet
   const icon = TYPE_ICONS[workout.type] || '📋'
 
@@ -28,12 +29,12 @@ export default function WorkoutCard({ workout, index, onClick, onToggleComplete 
         </div>
       </div>
       <div className="card-right">
-        {zone && (
+        {zone && zoneLabel && (
           <span
             className="zone-badge"
             style={{ backgroundColor: zoneColors.border, color: zoneColors.text }}
           >
-            {zoneColors.label}
+            {zoneLabel}
           </span>
         )}
         <button

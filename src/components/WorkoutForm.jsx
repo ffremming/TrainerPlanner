@@ -2,9 +2,9 @@ import {
   WORKOUT_TYPES,
   TEMPLATE_CATEGORIES,
   getAllowedIntensityZones,
-  getDefaultIntensityZone,
+  getDefaultIntensityZones,
   hasIntensityZone,
-  normalizeIntensityZone,
+  normalizeIntensityZones,
 } from '../utils'
 
 export default function WorkoutForm({ value, onChange, showCategory = false }) {
@@ -21,8 +21,17 @@ export default function WorkoutForm({ value, onChange, showCategory = false }) {
     onChange({
       ...value,
       type,
-      intensityZone: normalizeIntensityZone(type, value.intensityZone ?? getDefaultIntensityZone(type)),
+      intensityZone: normalizeIntensityZones(type, value.intensityZone ?? getDefaultIntensityZones(type)),
     })
+  }
+
+  function toggleIntensityZone(zone) {
+    const currentZones = normalizeIntensityZones(value.type, value.intensityZone)
+    const nextZones = currentZones.includes(zone)
+      ? (currentZones.length > 1 ? currentZones.filter(currentZone => currentZone !== zone) : currentZones)
+      : [...currentZones, zone].sort((a, b) => a - b)
+
+    set('intensityZone', nextZones)
   }
 
   return (
@@ -62,13 +71,14 @@ export default function WorkoutForm({ value, onChange, showCategory = false }) {
       {showIntensityZone && (
         <label>
           Intensitetssone
+          <div className="field-hint">Velg en eller flere soner</div>
           <div className="zone-picker">
             {allowedZones.map(z => (
               <button
                 key={z}
                 type="button"
-                className={`zone-btn zone-btn-${z}${value.intensityZone === z ? ' active' : ''}`}
-                onClick={() => set('intensityZone', z)}
+                className={`zone-btn zone-btn-${z}${normalizeIntensityZones(value.type, value.intensityZone).includes(z) ? ' active' : ''}`}
+                onClick={() => toggleIntensityZone(z)}
               >
                 Sone {z}
               </button>

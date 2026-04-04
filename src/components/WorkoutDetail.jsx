@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ZONE_COLORS, ZONE_INFO, TYPE_COLORS, TYPE_ICONS, WORKOUT_TYPES, normalizeIntensityZone } from '../utils'
+import { ZONE_COLORS, ZONE_INFO, TYPE_COLORS, TYPE_ICONS, WORKOUT_TYPES, formatIntensityZoneLabel, normalizeIntensityZone, normalizeIntensityZones } from '../utils'
 import WorkoutForm from './WorkoutForm'
 import IntensityScaleModal from './IntensityScaleModal'
 
@@ -18,12 +18,13 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
 
   if (!workout) return null
 
+  const zones = normalizeIntensityZones(workout.type, workout.intensityZone)
   const zone = normalizeIntensityZone(workout.type, workout.intensityZone)
-  const colors = ZONE_COLORS[zone]
-  const zoneInfo = ZONE_INFO[zone]
+  const colors = zone ? ZONE_COLORS[zone] : null
   const typeColors = TYPE_COLORS[workout.type] || TYPE_COLORS.annet
   const icon = TYPE_ICONS[workout.type] || '📋'
   const typeLabel = WORKOUT_TYPES.find(t => t.value === workout.type)?.label || workout.type
+  const zoneLabel = formatIntensityZoneLabel(zones)
   const isStrengthWorkout = workout.type === 'styrke' || workout.type === 'molle'
   const isRunningWorkout = ['interval', 'terskel', 'rolig', 'molle'].includes(workout.type)
   const exerciseLines = (workout.exercises || workout.description || '')
@@ -72,7 +73,7 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
 
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
-      <div className="modal" style={{ borderTop: `4px solid ${zone ? colors.border : typeColors.border}` }}>
+      <div className="modal" style={{ borderTop: `4px solid ${zone && colors ? colors.border : typeColors.border}` }}>
         <button className="modal-close" onClick={onClose}>✕</button>
 
         <div className="modal-header">
@@ -169,7 +170,7 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
           </div>
         </div>
 
-        {zone && (
+        {zone && colors && zoneLabel && (
           <div
             className="modal-section zone-section"
             style={{ backgroundColor: colors.bg, borderColor: colors.border, cursor: 'pointer' }}
@@ -177,11 +178,25 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
             title="Trykk for å se din intensitetsskala"
           >
             <div className="section-label" style={{ color: colors.text }}>
-              {colors.label} — {zoneInfo.rpe}
+              {zoneLabel}
             </div>
-            <div className="zone-stats">
-              <span>❤️ {zoneInfo.hr} bpm</span>
-              <span>💬 {zoneInfo.breathing}</span>
+            <div className="zone-multi-stats">
+              {zones.map(selectedZone => {
+                const zoneInfo = ZONE_INFO[selectedZone]
+                const zoneColors = ZONE_COLORS[selectedZone]
+
+                return (
+                  <div
+                    key={selectedZone}
+                    className="zone-mini-card"
+                    style={{ backgroundColor: zoneColors.bg, borderColor: zoneColors.border }}
+                  >
+                    <strong style={{ color: zoneColors.text }}>{zoneColors.label}</strong>
+                    <span>❤️ {zoneInfo.hr} bpm</span>
+                    <span>💬 {zoneInfo.breathing}</span>
+                  </div>
+                )
+              })}
             </div>
             <div style={{ fontSize: '0.7rem', color: colors.text, marginTop: '0.35rem', opacity: 0.7 }}>
               Trykk for å se full intensitetsskala

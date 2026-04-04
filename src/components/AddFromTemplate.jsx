@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ZONE_COLORS, WORKOUT_TYPES, getAllowedIntensityZones, hasIntensityZone, normalizeIntensityZone } from '../utils'
+import { WORKOUT_TYPES, getAllowedIntensityZones, hasIntensityZone, normalizeIntensityZones } from '../utils'
 
 export default function AddFromTemplate({ template, initialDate, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -14,7 +14,7 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
     exercises: template.exercises || '',
     rest: template.rest || '',
     notes: template.notes || '',
-    intensityZone: normalizeIntensityZone(template.type, template.intensityZone),
+    intensityZone: normalizeIntensityZones(template.type, template.intensityZone),
   })
 
   function set(key, value) {
@@ -25,13 +25,22 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
     setForm(f => ({
       ...f,
       type,
-      intensityZone: normalizeIntensityZone(type, f.intensityZone),
+      intensityZone: normalizeIntensityZones(type, f.intensityZone),
     }))
+  }
+
+  function toggleIntensityZone(zone) {
+    const currentZones = normalizeIntensityZones(form.type, form.intensityZone)
+    const nextZones = currentZones.includes(zone)
+      ? (currentZones.length > 1 ? currentZones.filter(currentZone => currentZone !== zone) : currentZones)
+      : [...currentZones, zone].sort((a, b) => a - b)
+
+    set('intensityZone', nextZones)
   }
 
   function handleSubmit(e) {
     e.preventDefault()
-    onSave({ ...form, intensityZone: normalizeIntensityZone(form.type, form.intensityZone) })
+    onSave({ ...form, intensityZone: normalizeIntensityZones(form.type, form.intensityZone) })
   }
 
   function handleBackdrop(e) {
@@ -40,7 +49,6 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
 
   const showIntensityZone = hasIntensityZone(form.type)
   const allowedZones = getAllowedIntensityZones(form.type)
-  const colors = ZONE_COLORS[form.intensityZone]
 
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
@@ -81,13 +89,14 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
           {showIntensityZone && (
             <label>
               Intensitetssone
+              <div className="field-hint">Velg en eller flere soner</div>
               <div className="zone-picker">
                 {allowedZones.map(z => (
                   <button
                     key={z}
                     type="button"
-                    className={`zone-btn zone-btn-${z}${form.intensityZone === z ? ' active' : ''}`}
-                    onClick={() => set('intensityZone', z)}
+                    className={`zone-btn zone-btn-${z}${normalizeIntensityZones(form.type, form.intensityZone).includes(z) ? ' active' : ''}`}
+                    onClick={() => toggleIntensityZone(z)}
                   >
                     Sone {z}
                   </button>
