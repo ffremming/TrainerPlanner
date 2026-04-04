@@ -5,23 +5,37 @@ import {
   updateDoc, deleteDoc, doc, serverTimestamp
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
-import { getWeekNumber, getWeekDates, normalizeWorkout } from './utils'
+import {
+  getAdjacentWeek,
+  getWeekKey,
+  getWeekNumber,
+  getWeekDates,
+  getWeekSequence,
+  normalizeWorkout,
+} from './utils'
 import WorkoutCard from './components/WorkoutCard'
 import WorkoutDetail from './components/WorkoutDetail'
 import Login from './components/Login'
 import AdminDashboard from './components/AdminDashboard'
+import BirdsEyeOverview from './components/BirdsEyeOverview'
 
 export default function App() {
   const today = new Date()
   const [currentWeek, setCurrentWeek] = useState(getWeekNumber(today))
   const [currentYear, setCurrentYear] = useState(today.getFullYear())
   const [workouts, setWorkouts] = useState([])
+  const [overviewWorkouts, setOverviewWorkouts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [overviewLoading, setOverviewLoading] = useState(true)
 
   const [user, setUser] = useState(undefined)
   const [showLogin, setShowLogin] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState(null)
+
+  const overviewWeeks = getWeekSequence(currentWeek, currentYear, 8)
+  const overviewWeekKeys = new Set(overviewWeeks.map(week => week.key))
+  const selectedWeekKey = getWeekKey(currentWeek, currentYear)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setUser(u))
@@ -46,6 +60,48 @@ export default function App() {
   }, [currentWeek, currentYear])
 
   useEffect(() => {
+    setOverviewLoading(true)
+    setOverviewWorkouts([])
+
+    const years = [...new Set(overviewWeeks.map(week => week.year))]
+    const workoutMap = new Map()
+    const loadedYears = new Set()
+
+    const unsubscribers = years.map(year => onSnapshot(
+      query(collection(db, 'workouts'), where('year', '==', year)),
+      snap => {
+        for (const [id, workout] of [...workoutMap.entries()]) {
+          if (workout.year === year) {
+            workoutMap.delete(id)
+          }
+        }
+
+        snap.docs.forEach(docSnap => {
+          const normalized = normalizeWorkout({ id: docSnap.id, ...docSnap.data() })
+          const key = getWeekKey(normalized.week, normalized.year)
+          if (overviewWeekKeys.has(key)) {
+            workoutMap.set(normalized.id, normalized)
+          }
+        })
+
+        loadedYears.add(year)
+        setOverviewWorkouts(
+          [...workoutMap.values()].sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year
+            if (a.week !== b.week) return a.week - b.week
+            return (a.order ?? 0) - (b.order ?? 0)
+          })
+        )
+        if (loadedYears.size >= years.length) {
+          setOverviewLoading(false)
+        }
+      }
+    ))
+
+    return () => unsubscribers.forEach(unsub => unsub())
+  }, [currentWeek, currentYear])
+
+  useEffect(() => {
     if (!selectedWorkout) return
     const freshWorkout = workouts.find(w => w.id === selectedWorkout.id)
     if (freshWorkout) {
@@ -56,13 +112,15 @@ export default function App() {
   }, [workouts, selectedWorkout])
 
   function prevWeek() {
-    if (currentWeek === 1) { setCurrentWeek(52); setCurrentYear(y => y - 1) }
-    else setCurrentWeek(w => w - 1)
+    const previous = getAdjacentWeek(currentWeek, currentYear, -1)
+    setCurrentWeek(previous.week)
+    setCurrentYear(previous.year)
   }
 
   function nextWeek() {
-    if (currentWeek >= 52) { setCurrentWeek(1); setCurrentYear(y => y + 1) }
-    else setCurrentWeek(w => w + 1)
+    const next = getAdjacentWeek(currentWeek, currentYear, 1)
+    setCurrentWeek(next.week)
+    setCurrentYear(next.year)
   }
 
   function goToToday() {
@@ -94,6 +152,12 @@ export default function App() {
   const doneCount = workouts.filter(w => w.completed).length
   const isThisWeek = currentWeek === getWeekNumber(today) && currentYear === today.getFullYear()
   const isAdmin = !!user
+  const overviewByWeekKey = overviewWorkouts.reduce((acc, workout) => {
+    const key = getWeekKey(workout.week, workout.year)
+    if (!acc[key]) acc[key] = []
+    acc[key].push(workout)
+    return acc
+  }, {})
 
   if (showAdmin && isAdmin) {
     return <AdminDashboard user={user} onClose={() => setShowAdmin(false)} />
@@ -131,6 +195,20 @@ export default function App() {
       </header>
 
       <main className="main">
+        {overviewLoading ? (
+          <div className="birds-eye-loading">Laster 8 ukers oversikt...</div>
+        ) : (
+          <BirdsEyeOverview
+            weeks={overviewWeeks}
+            workoutsByWeekKey={overviewByWeekKey}
+            selectedWeekKey={selectedWeekKey}
+            onSelectWeek={(week, year) => {
+              setCurrentWeek(week)
+              setCurrentYear(year)
+            }}
+          />
+        )}
+
         {loading ? (
           <div className="empty-state">Laster...</div>
         ) : workouts.length === 0 ? (

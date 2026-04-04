@@ -5,6 +5,11 @@ export function getWeekNumber(date) {
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
 }
 
+export function getISOWeeksInYear(year) {
+  const dec28 = new Date(Date.UTC(year, 11, 28))
+  return getWeekNumber(dec28)
+}
+
 export function getWeekDates(week, year) {
   const jan4 = new Date(year, 0, 4)
   const startOfWeek1 = new Date(jan4)
@@ -14,6 +19,53 @@ export function getWeekDates(week, year) {
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate() + 6)
   return { monday, sunday }
+}
+
+export function getAdjacentWeek(week, year, direction) {
+  if (direction < 0) {
+    if (week === 1) {
+      const previousYear = year - 1
+      return { week: getISOWeeksInYear(previousYear), year: previousYear }
+    }
+
+    return { week: week - 1, year }
+  }
+
+  const weeksInYear = getISOWeeksInYear(year)
+  if (week >= weeksInYear) {
+    return { week: 1, year: year + 1 }
+  }
+
+  return { week: week + 1, year }
+}
+
+export function getWeekSequence(startWeek, startYear, count) {
+  const weeks = []
+  let cursor = { week: startWeek, year: startYear }
+
+  for (let index = 0; index < count; index += 1) {
+    const { monday, sunday } = getWeekDates(cursor.week, cursor.year)
+    weeks.push({
+      week: cursor.week,
+      year: cursor.year,
+      monday,
+      sunday,
+      key: `${cursor.year}-${String(cursor.week).padStart(2, '0')}`,
+    })
+    cursor = getAdjacentWeek(cursor.week, cursor.year, 1)
+  }
+
+  return weeks
+}
+
+export function getWeekKey(week, year) {
+  return `${year}-${String(week).padStart(2, '0')}`
+}
+
+export function parseDistanceValue(distance) {
+  if (typeof distance !== 'string') return null
+  const match = distance.replace(',', '.').match(/(\d+(?:\.\d+)?)/)
+  return match ? Number(match[1]) : null
 }
 
 export const ZONE_COLORS = {

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import {
-  collection, query, where, orderBy, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch
+  collection, query, where, onSnapshot,
+  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs
 } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '../firebase'
 import {
   getWeekNumber,
+  getAdjacentWeek,
   getWeekDates,
   ZONE_COLORS,
   TYPE_COLORS,
@@ -42,6 +43,31 @@ const EMPTY_TEMPLATE = {
   intensityZone: getDefaultIntensityZone('interval'),
 }
 
+function getBuiltinTemplateDocId(template) {
+  return `builtin-${String(template.id || template.title)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')}`
+}
+
+function getTemplateLookupKey(template) {
+  return [
+    (template.category || '').trim().toLowerCase(),
+    (template.type || '').trim().toLowerCase(),
+    (template.title || '').trim().toLowerCase(),
+  ].join('::')
+}
+
+function getBuiltinTemplatePayload(template) {
+  const { id, ...fields } = template
+  return {
+    ...fields,
+    templateId: id,
+    source: 'builtin',
+    intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+  }
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────
 
 export default function AdminDashboard({ user, onClose }) {
@@ -56,6 +82,7 @@ export default function AdminDashboard({ user, onClose }) {
   const [selectedWorkout, setSelectedWorkout] = useState(null)
   const [showCustomForm, setShowCustomForm] = useState(false)
   const [customForm, setCustomForm] = useState({ ...EMPTY_TEMPLATE })
+  const [replacementTarget, setReplacementTarget] = useState(null)
 
   // Øktbank state
   const [templates, setTemplates] = useState([])
@@ -63,6 +90,7 @@ export default function AdminDashboard({ user, onClose }) {
   const [activeCategory, setActiveCategory] = useState('Alle')
   const [editingTemplate, setEditingTemplate] = useState(null) // null | 'new' | {template}
   const [templateForm, setTemplateForm] = useState({ ...EMPTY_TEMPLATE })
+  const [templatesSynced, setTemplatesSynced] = useState(false)
 
   // When in "pick from bank" mode (triggered from plan tab)
   const [pickingFromBank, setPickingFromBank] = useState(false)
@@ -98,20 +126,79 @@ export default function AdminDashboard({ user, onClose }) {
     setSelectedWorkout(null)
   }, [workouts, selectedWorkout])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function syncBuiltinTemplates() {
+      const templatesRef = collection(db, 'templates')
+      const existingSnap = await getDocs(templatesRef)
+      const existingDocs = existingSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+      const docsById = new Map(existingDocs.map(template => [template.id, template]))
+      const docsByTemplateId = new Map(
+        existingDocs
+          .filter(template => template.templateId)
+          .map(template => [template.templateId, template])
+      )
+      const docsByLookupKey = new Map(
+        existingDocs.map(template => [getTemplateLookupKey(template), template])
+      )
+
+      const batch = writeBatch(db)
+      let changes = 0
+
+      WORKOUT_TEMPLATES.forEach(template => {
+        const docId = getBuiltinTemplateDocId(template)
+        const payload = getBuiltinTemplatePayload(template)
+        const existing =
+          docsById.get(docId) ||
+          docsByTemplateId.get(template.id) ||
+          docsByLookupKey.get(getTemplateLookupKey(template))
+
+        const currentComparable = existing
+          ? JSON.stringify(getBuiltinTemplatePayload({ ...existing, id: existing.templateId || template.id }))
+          : null
+        const nextComparable = JSON.stringify(payload)
+
+        if (!existing || existing.id !== docId || currentComparable !== nextComparable) {
+          batch.set(doc(db, 'templates', docId), {
+            ...payload,
+            createdAt: existing?.createdAt || serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+          changes += 1
+        }
+
+        if (existing && existing.id !== docId) {
+          batch.delete(doc(db, 'templates', existing.id))
+          changes += 1
+        }
+      })
+
+      if (changes > 0) {
+        await batch.commit()
+      }
+
+      if (!cancelled) {
+        setTemplatesSynced(true)
+      }
+    }
+
+    syncBuiltinTemplates().catch(err => {
+      console.error('Kunne ikke synkronisere innebygde maler:', err)
+      if (!cancelled) {
+        setTemplatesSynced(true)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // ─── Templates listener ───
   useEffect(() => {
     setLoadingTemplates(true)
-    const unsub = onSnapshot(collection(db, 'templates'), async snap => {
-      if (snap.empty) {
-        const batch = writeBatch(db)
-        WORKOUT_TEMPLATES.forEach(template => {
-          const ref = doc(collection(db, 'templates'))
-          const { id, ...fields } = template
-          batch.set(ref, { ...fields, createdAt: serverTimestamp() })
-        })
-        await batch.commit()
-        return
-      }
+    const unsub = onSnapshot(collection(db, 'templates'), snap => {
       const docs = snap.docs
         .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
         .sort((a, b) => {
@@ -119,19 +206,23 @@ export default function AdminDashboard({ user, onClose }) {
           return catOrder !== 0 ? catOrder : (a.title || '').localeCompare(b.title || '')
         })
       setTemplates(docs)
-      setLoadingTemplates(false)
+      if (templatesSynced || !snap.empty) {
+        setLoadingTemplates(false)
+      }
     })
     return unsub
-  }, [])
+  }, [templatesSynced])
 
   // ─── Week nav ───
   function prevWeek() {
-    if (currentWeek === 1) { setCurrentWeek(52); setCurrentYear(y => y - 1) }
-    else setCurrentWeek(w => w - 1)
+    const previous = getAdjacentWeek(currentWeek, currentYear, -1)
+    setCurrentWeek(previous.week)
+    setCurrentYear(previous.year)
   }
   function nextWeek() {
-    if (currentWeek >= 52) { setCurrentWeek(1); setCurrentYear(y => y + 1) }
-    else setCurrentWeek(w => w + 1)
+    const next = getAdjacentWeek(currentWeek, currentYear, 1)
+    setCurrentWeek(next.week)
+    setCurrentYear(next.year)
   }
 
   // ─── Workout actions ───
@@ -157,9 +248,47 @@ export default function AdminDashboard({ user, onClose }) {
 
   async function handleAddFromTemplate(template) {
     const { id, createdAt, ...fields } = template
-    await addWorkoutToWeek(fields)
+    if (replacementTarget) {
+      const shouldReplace = window.confirm(
+        `Er du sikker på at du vil bytte ut økten "${replacementTarget.title}" med "${template.title}"?`
+      )
+      if (!shouldReplace) return
+
+      await updateDoc(doc(db, 'workouts', replacementTarget.id), {
+        ...EMPTY_TEMPLATE,
+        ...fields,
+        intensityZone: normalizeIntensityZone(fields.type, fields.intensityZone),
+        week: replacementTarget.week,
+        year: replacementTarget.year,
+        order: replacementTarget.order ?? 0,
+        completed: false,
+        completedAt: null,
+        userComment: '',
+        userCommentUpdatedAt: null,
+      })
+
+      if (selectedWorkout?.id === replacementTarget.id) {
+        setSelectedWorkout(null)
+      }
+      setReplacementTarget(null)
+    } else {
+      await addWorkoutToWeek(fields)
+    }
+
     setPickingFromBank(false)
     setTab('plan')
+  }
+
+  function handleStartReplaceWorkout(workout) {
+    setReplacementTarget(workout)
+    setPickingFromBank(true)
+    setTab('oktbank')
+  }
+
+  function handleOpenWorkoutBank() {
+    setReplacementTarget(null)
+    setPickingFromBank(true)
+    setTab('oktbank')
   }
 
   async function handleEditWorkout(updated) {
@@ -225,6 +354,7 @@ export default function AdminDashboard({ user, onClose }) {
     if (editingTemplate === 'new') {
       await addDoc(collection(db, 'templates'), {
         ...templateForm,
+        source: 'custom',
         intensityZone: normalizeIntensityZone(templateForm.type, templateForm.intensityZone),
         createdAt: serverTimestamp(),
       })
@@ -311,13 +441,20 @@ export default function AdminDashboard({ user, onClose }) {
       <div className="admin-tabs">
         <button
           className={`admin-tab${tab === 'plan' ? ' active' : ''}`}
-          onClick={() => { setTab('plan'); setPickingFromBank(false) }}
+          onClick={() => {
+            setTab('plan')
+            setPickingFromBank(false)
+            setReplacementTarget(null)
+          }}
         >
           📅 Ukeplan
         </button>
         <button
           className={`admin-tab${tab === 'oktbank' ? ' active' : ''}`}
-          onClick={() => setTab('oktbank')}
+          onClick={() => {
+            setTab('oktbank')
+            setReplacementTarget(null)
+          }}
         >
           📚 Øktbank
         </button>
@@ -357,6 +494,7 @@ export default function AdminDashboard({ user, onClose }) {
                   total={workouts.length}
                   onClick={setSelectedWorkout}
                   onDelete={handleDeleteWorkout}
+                  onReplace={handleStartReplaceWorkout}
                   onToggleComplete={handleToggleComplete}
                   onMoveUp={() => moveWorkout(w, -1)}
                   onMoveDown={() => moveWorkout(w, 1)}
@@ -368,7 +506,7 @@ export default function AdminDashboard({ user, onClose }) {
           <div className="admin-plan-actions">
             <button
               className="btn-admin-add secondary"
-              onClick={() => { setPickingFromBank(true); setTab('oktbank') }}
+              onClick={handleOpenWorkoutBank}
             >
               + Fra øktbank
             </button>
@@ -386,7 +524,11 @@ export default function AdminDashboard({ user, onClose }) {
             {pickingFromBank ? (
               <>
                 <h2 className="oktbank-title">Velg økt for uke {currentWeek}</h2>
-                <p className="oktbank-subtitle">Trykk på en økt for å legge den til i planen</p>
+                <p className="oktbank-subtitle">
+                  {replacementTarget
+                    ? `Trykk på en økt for å bytte ut "${replacementTarget.title}"`
+                    : 'Trykk på en økt for å legge den til i planen'}
+                </p>
               </>
             ) : (
               <>
@@ -422,6 +564,7 @@ export default function AdminDashboard({ user, onClose }) {
                   key={template.id}
                   template={template}
                   pickMode={pickingFromBank}
+                  replacementMode={!!replacementTarget}
                   onPick={() => handleAddFromTemplate(template)}
                   onEdit={() => startEditTemplate(template)}
                   onDelete={() => handleDeleteTemplate(template)}
@@ -454,7 +597,7 @@ export default function AdminDashboard({ user, onClose }) {
 
 // ─── Admin Workout Row ─────────────────────────────────────────────────────
 
-function AdminWorkoutRow({ workout, index, total, onClick, onDelete, onToggleComplete, onMoveUp, onMoveDown }) {
+function AdminWorkoutRow({ workout, index, total, onClick, onDelete, onReplace, onToggleComplete, onMoveUp, onMoveDown }) {
   const typeColors = TYPE_COLORS[workout.type] || TYPE_COLORS.annet
   const icon = TYPE_ICONS[workout.type] || '📋'
 
@@ -489,6 +632,7 @@ function AdminWorkoutRow({ workout, index, total, onClick, onDelete, onToggleCom
       </div>
 
       <div className="admin-row-actions">
+        <button className="reorder-btn" onClick={() => onReplace(workout)} title="Bytt ut fra øktbank">⇄</button>
         <button
           className={`check-btn${workout.completed ? ' checked' : ''}`}
           onClick={() => onToggleComplete(workout)}
@@ -503,7 +647,7 @@ function AdminWorkoutRow({ workout, index, total, onClick, onDelete, onToggleCom
 
 // ─── Template Card ─────────────────────────────────────────────────────────
 
-function TemplateCard({ template, pickMode, onPick, onEdit, onDelete }) {
+function TemplateCard({ template, pickMode, replacementMode, onPick, onEdit, onDelete }) {
   const typeColors = TYPE_COLORS[template.type] || TYPE_COLORS.annet
   const zone = normalizeIntensityZone(template.type, template.intensityZone)
   const zoneColors = ZONE_COLORS[zone]
@@ -542,7 +686,7 @@ function TemplateCard({ template, pickMode, onPick, onEdit, onDelete }) {
       <div className="template-actions">
         {pickMode ? (
           <button className="btn-template-pick" onClick={onPick}>
-            + Legg til i plan
+            {replacementMode ? 'Bytt ut økt' : '+ Legg til i plan'}
           </button>
         ) : (
           <>

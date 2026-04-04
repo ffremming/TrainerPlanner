@@ -139,6 +139,178 @@ html, body {
   padding-bottom: 5rem;
 }
 
+.birds-eye-loading {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.birds-eye-panel {
+  margin-bottom: 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 0.9rem;
+  box-shadow: var(--shadow);
+}
+
+.birds-eye-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.birds-eye-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.birds-eye-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.birds-eye-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.legend-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 0.2rem;
+  display: inline-block;
+}
+
+.legend-dot.zone-2 {
+  background: #81c784;
+}
+
+.legend-dot.zone-4 {
+  background: #ffb74d;
+}
+
+.legend-dot.type-strength {
+  background: #f472b6;
+}
+
+.birds-eye-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(88px, 1fr));
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+}
+
+.birds-eye-week {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 14px;
+  padding: 0.7rem 0.55rem;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  min-height: 178px;
+}
+
+.birds-eye-week:hover {
+  transform: translateY(-1px);
+  border-color: #cbd5e1;
+}
+
+.birds-eye-week.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.birds-eye-week-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.birds-eye-week-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.birds-eye-week-range {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.birds-eye-week-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.55rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.birds-eye-workouts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  align-content: start;
+}
+
+.birds-eye-tile {
+  aspect-ratio: 1;
+  border: 1px solid;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.birds-eye-tile.completed {
+  opacity: 0.6;
+}
+
+.birds-eye-tile-distance {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 0.15rem;
+  white-space: nowrap;
+}
+
+.birds-eye-empty {
+  grid-column: 1 / -1;
+  min-height: 64px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
 /* ─── Week summary bar ─── */
 .week-summary {
   font-size: 0.8rem;
@@ -1087,6 +1259,16 @@ html, body {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+@media (max-width: 599px) {
+  .birds-eye-header {
+    flex-direction: column;
+  }
+
+  .birds-eye-legend {
+    justify-content: flex-start;
+  }
 }
 
 /* ─── Desktop tweaks ─── */
