@@ -94,6 +94,78 @@ export function parseDistanceValue(distance) {
   return match ? Number(match[1]) : null
 }
 
+export function getWorkoutDistance(workout) {
+  return parseDistanceValue(workout?.distance)
+}
+
+export function getWeeklyDistance(workouts) {
+  return workouts.reduce((sum, workout) => {
+    const distance = getWorkoutDistance(workout)
+    return distance === null ? sum : sum + distance
+  }, 0)
+}
+
+export function formatKmValue(value) {
+  if (!Number.isFinite(value) || value <= 0) return '0 km'
+  const rounded = Number.isInteger(value) ? value : Number(value.toFixed(1))
+  return `${rounded} km`
+}
+
+function getWeekOffsetFromAnchor(targetWeek, targetYear, anchorWeek, anchorYear) {
+  if (targetYear === anchorYear) {
+    return targetWeek - anchorWeek
+  }
+
+  let offset = 0
+
+  if (targetYear > anchorYear) {
+    offset += getISOWeeksInYear(anchorYear) - anchorWeek
+    for (let year = anchorYear + 1; year < targetYear; year += 1) {
+      offset += getISOWeeksInYear(year)
+    }
+    offset += targetWeek
+    return offset
+  }
+
+  offset -= anchorWeek
+  for (let year = anchorYear - 1; year > targetYear; year -= 1) {
+    offset -= getISOWeeksInYear(year)
+  }
+  offset -= getISOWeeksInYear(targetYear) - targetWeek
+  return offset
+}
+
+export function getWeeklyProgressionTarget(
+  week,
+  year,
+  startingDistance = 17,
+  growthFactor = 1.07,
+  anchorWeek = 13,
+  anchorYear = 2026
+) {
+  const weekOffset = getWeekOffsetFromAnchor(week, year, anchorWeek, anchorYear)
+  return Number((startingDistance * Math.pow(growthFactor, weekOffset)).toFixed(2))
+}
+
+export function getWeeklyProgressionTargets(
+  weeks,
+  startingDistance = 17,
+  growthFactor = 1.07,
+  anchorWeek = 13,
+  anchorYear = 2026
+) {
+  const targets = new Map()
+
+  weeks.forEach(week => {
+    targets.set(
+      week.key,
+      getWeeklyProgressionTarget(week.week, week.year, startingDistance, growthFactor, anchorWeek, anchorYear)
+    )
+  })
+
+  return targets
+}
+
 export const ZONE_COLORS = {
   1: { bg: '#e8f4fd', border: '#90caf9', text: '#1565c0', label: 'Sone 1' },
   2: { bg: '#e8f8e8', border: '#81c784', text: '#2e7d32', label: 'Sone 2' },

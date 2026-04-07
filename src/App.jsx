@@ -6,11 +6,17 @@ import {
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 import {
+  TYPE_COLORS,
+  TYPE_ICONS,
+  ZONE_COLORS,
   getAdjacentWeek,
+  getIntensityZoneLabel,
   getWeekKey,
   getWeekNumber,
   getWeekDates,
   getWeekWindow,
+  normalizeIntensityZone,
+  normalizeIntensityZones,
   normalizeWorkout,
 } from './utils'
 import WorkoutCard from './components/WorkoutCard'
@@ -33,6 +39,9 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [showOverview, setShowOverview] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState(null)
+  const [templates, setTemplates] = useState([])
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+  const [replacementTarget, setReplacementTarget] = useState(null)
 
   const overviewWeeks = getWeekWindow(currentWeek, currentYear, 4, 4)
   const overviewWeekKeys = new Set(overviewWeeks.map(week => week.key))
@@ -112,6 +121,22 @@ export default function App() {
     setSelectedWorkout(null)
   }, [workouts, selectedWorkout])
 
+  useEffect(() => {
+    setLoadingTemplates(true)
+    const unsub = onSnapshot(collection(db, 'templates'), snap => {
+      const docs = snap.docs
+        .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const categoryCompare = (a.category || '').localeCompare(b.category || '')
+          if (categoryCompare !== 0) return categoryCompare
+          return (a.title || '').localeCompare(b.title || '')
+        })
+      setTemplates(docs)
+      setLoadingTemplates(false)
+    })
+    return unsub
+  }, [])
+
   function prevWeek() {
     const previous = getAdjacentWeek(currentWeek, currentYear, -1)
     setCurrentWeek(previous.week)
@@ -127,6 +152,11 @@ export default function App() {
   function goToToday() {
     setCurrentWeek(getWeekNumber(today))
     setCurrentYear(today.getFullYear())
+  }
+
+  function handleWeekChange(week, year) {
+    setCurrentWeek(week)
+    setCurrentYear(year)
   }
 
   async function handleToggleComplete(workout) {
@@ -149,6 +179,40 @@ export default function App() {
     }
   }
 
+  function handleStartReplaceWorkout(workout) {
+    setReplacementTarget(workout)
+    setSelectedWorkout(null)
+  }
+
+  async function handleReplaceWithTemplate(template) {
+    if (!replacementTarget) return
+
+    const shouldReplace = window.confirm(
+      `Er du sikker på at du vil bytte ut økten "${replacementTarget.title}" med "${template.title}"?`
+    )
+    if (!shouldReplace) return
+
+    const { id, createdAt, updatedAt, templateId, source, ...fields } = template
+    await updateDoc(doc(db, 'workouts', replacementTarget.id), {
+      ...fields,
+      intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
+      week: replacementTarget.week,
+      year: replacementTarget.year,
+      order: replacementTarget.order ?? 0,
+      completed: false,
+      completedAt: null,
+      userComment: '',
+      userCommentUpdatedAt: null,
+      updatedAt: serverTimestamp(),
+    })
+
+    setReplacementTarget(null)
+  }
+
+  function closeTemplatePicker() {
+    setReplacementTarget(null)
+  }
+
   const { monday, sunday } = getWeekDates(currentWeek, currentYear)
   const doneCount = workouts.filter(w => w.completed).length
   const isThisWeek = currentWeek === getWeekNumber(today) && currentYear === today.getFullYear()
@@ -161,7 +225,18 @@ export default function App() {
   }, {})
 
   if (showAdmin && isAdmin) {
-    return <AdminDashboard user={user} onClose={() => setShowAdmin(false)} />
+    return (
+      <AdminDashboard
+        user={user}
+        onClose={() => setShowAdmin(false)}
+        currentWeek={currentWeek}
+        currentYear={currentYear}
+        onWeekChange={handleWeekChange}
+        overviewWeeks={overviewWeeks}
+        overviewWorkoutsByWeekKey={overviewByWeekKey}
+        overviewLoading={overviewLoading}
+      />
+    )
   }
 
   return (
@@ -221,8 +296,7 @@ export default function App() {
               workoutsByWeekKey={overviewByWeekKey}
               selectedWeekKey={selectedWeekKey}
               onSelectWeek={(week, year) => {
-                setCurrentWeek(week)
-                setCurrentYear(year)
+                handleWeekChange(week, year)
                 setShowOverview(false)
               }}
             />
@@ -267,6 +341,7 @@ export default function App() {
           workout={selectedWorkout}
           onClose={() => setSelectedWorkout(null)}
           isAdmin={isAdmin}
+          onReplace={handleStartReplaceWorkout}
           onDelete={async (w) => {
             await deleteDoc(doc(db, 'workouts', w.id))
             setSelectedWorkout(null)
@@ -281,7 +356,92 @@ export default function App() {
         />
       )}
 
+      {replacementTarget && (
+        <TemplatePickerModal
+          targetWorkout={replacementTarget}
+          templates={templates}
+          loading={loadingTemplates}
+          onClose={closeTemplatePicker}
+          onPick={handleReplaceWithTemplate}
+        />
+      )}
+
       {showLogin && <Login onClose={() => setShowLogin(false)} />}
+    </div>
+  )
+}
+
+function TemplatePickerModal({ targetWorkout, templates, loading, onClose, onPick }) {
+  function handleBackdrop(e) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdrop}>
+      <div className="modal add-modal">
+        <button className="modal-close" onClick={onClose}>✕</button>
+        <h2 className="modal-title-h2">Bytt økt</h2>
+        <p className="template-picker-subtitle">
+          Velg en ny økt fra øktbanken for å erstatte &quot;{targetWorkout.title}&quot;.
+        </p>
+
+        {loading ? (
+          <div className="empty-state">Laster øktbank...</div>
+        ) : templates.length === 0 ? (
+          <div className="empty-state">Ingen økter tilgjengelig i øktbanken.</div>
+        ) : (
+          <div className="template-list template-picker-list">
+            {templates.map(template => (
+              <TemplatePickerCard
+                key={template.id}
+                template={template}
+                onPick={() => onPick(template)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TemplatePickerCard({ template, onPick }) {
+  const typeColors = TYPE_COLORS[template.type] || TYPE_COLORS.annet
+  const zone = normalizeIntensityZone(template.type, template.intensityZone)
+  const zoneColors = zone ? ZONE_COLORS[zone] : null
+  const zoneLabel = getIntensityZoneLabel(template)
+  const icon = TYPE_ICONS[template.type] || '📋'
+
+  return (
+    <div
+      className="template-card"
+      style={{ backgroundColor: typeColors.bg, borderLeftColor: typeColors.border }}
+    >
+      <div className="template-card-top">
+        <div className="template-card-left">
+          <span className="template-icon">{icon}</span>
+          <div>
+            <div className="template-title">{template.title}</div>
+            {template.category && <div className="template-category">{template.category}</div>}
+          </div>
+        </div>
+        {zone && zoneLabel && zoneColors && (
+          <span
+            className="zone-badge"
+            style={{ backgroundColor: zoneColors.border, color: zoneColors.text }}
+          >
+            {zoneLabel}
+          </span>
+        )}
+      </div>
+
+      {template.description && <div className="template-desc">{template.description}</div>}
+
+      <div className="template-actions">
+        <button className="btn-template-pick" onClick={onPick}>
+          Bytt til denne
+        </button>
+      </div>
     </div>
   )
 }

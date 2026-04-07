@@ -3,7 +3,7 @@ import { ZONE_COLORS, ZONE_INFO, TYPE_COLORS, TYPE_ICONS, WORKOUT_TYPES, formatI
 import WorkoutForm from './WorkoutForm'
 import IntensityScaleModal from './IntensityScaleModal'
 
-export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onToggleComplete, onEdit, onSaveComment }) {
+export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onToggleComplete, onEdit, onSaveComment, onReplace }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(workout ? { ...workout } : {})
   const [showScale, setShowScale] = useState(false)
@@ -213,6 +213,9 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
           >
             {workout.completed ? '✓ Fullført!' : 'Marker som fullført'}
           </button>
+          {onReplace && (
+            <button className="btn-edit" onClick={() => onReplace(workout)}>⇄</button>
+          )}
           {isAdmin && (
             <button className="btn-edit" onClick={() => setEditing(true)}>✏️</button>
           )}

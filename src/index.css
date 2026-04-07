@@ -176,6 +176,118 @@ html, body {
   box-shadow: var(--shadow);
 }
 
+.birds-eye-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.birds-eye-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.birds-eye-subtitle {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.birds-eye-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.birds-eye-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.birds-eye-legend-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+}
+
+.birds-eye-legend-dot.planned {
+  background: #2563eb;
+}
+
+.birds-eye-legend-dot.target {
+  background: #f97316;
+}
+
+.birds-eye-chart {
+  margin-bottom: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 0.45rem;
+  min-height: 17rem;
+}
+
+.birds-eye-chart-svg {
+  width: 100%;
+  height: clamp(16rem, 34vw, 20rem);
+  display: block;
+}
+
+.birds-eye-chart-grid {
+  stroke: #dbe3ef;
+  stroke-width: 1;
+}
+
+.birds-eye-chart-axis-label,
+.birds-eye-chart-week-label {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.birds-eye-chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.birds-eye-chart-line.planned {
+  stroke: #2563eb;
+}
+
+.birds-eye-chart-line.target {
+  stroke: #f97316;
+  stroke-dasharray: 8 6;
+}
+
+.birds-eye-chart-point {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.birds-eye-chart-point.planned {
+  fill: #2563eb;
+}
+
+.birds-eye-chart-point.planned.selected {
+  fill: #1d4ed8;
+}
+
+.birds-eye-chart-point.target {
+  fill: #f97316;
+}
+
 .birds-eye-grid {
   display: flex;
   flex-direction: column;
@@ -196,6 +308,26 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 0.7rem;
+}
+
+.birds-eye-week-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 5rem;
+  flex: 0 0 auto;
+}
+
+.birds-eye-week-label {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.birds-eye-week-target {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 
 .birds-eye-week:hover {
@@ -900,6 +1032,14 @@ html, body {
   flex: 1;
 }
 
+.admin-overview-wrap {
+  padding: 0.75rem 1rem 0;
+}
+
+.admin-overview-loading {
+  padding: 0.85rem 1rem 0;
+}
+
 .admin-week-nav {
   display: flex;
   align-items: center;
@@ -1051,6 +1191,19 @@ html, body {
   flex-direction: column;
   gap: 0.6rem;
   padding: 0 1rem 2rem;
+}
+
+.template-picker-subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0 1rem 1rem;
+}
+
+.template-picker-list {
+  max-height: min(60vh, 36rem);
+  overflow-y: auto;
+  padding-bottom: 0.5rem;
 }
 
 .template-card {

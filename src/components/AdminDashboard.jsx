@@ -9,6 +9,7 @@ import {
   getWeekNumber,
   getAdjacentWeek,
   getWeekDates,
+  getWeekKey,
   ZONE_COLORS,
   TYPE_COLORS,
   TYPE_ICONS,
@@ -22,6 +23,7 @@ import {
 import { WORKOUT_TEMPLATES } from '../workoutTemplates'
 import WorkoutForm from './WorkoutForm'
 import WorkoutDetail from './WorkoutDetail'
+import BirdsEyeOverview from './BirdsEyeOverview'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -71,13 +73,20 @@ function getBuiltinTemplatePayload(template) {
 
 // ─── Main Component ────────────────────────────────────────────────────────
 
-export default function AdminDashboard({ user, onClose }) {
+export default function AdminDashboard({
+  user,
+  onClose,
+  currentWeek,
+  currentYear,
+  onWeekChange,
+  overviewWeeks,
+  overviewWorkoutsByWeekKey,
+  overviewLoading,
+}) {
   const today = new Date()
   const [tab, setTab] = useState('plan')
 
   // Ukeplan state
-  const [currentWeek, setCurrentWeek] = useState(getWeekNumber(today))
-  const [currentYear, setCurrentYear] = useState(today.getFullYear())
   const [workouts, setWorkouts] = useState([])
   const [loadingWorkouts, setLoadingWorkouts] = useState(true)
   const [selectedWorkout, setSelectedWorkout] = useState(null)
@@ -95,6 +104,7 @@ export default function AdminDashboard({ user, onClose }) {
 
   // When in "pick from bank" mode (triggered from plan tab)
   const [pickingFromBank, setPickingFromBank] = useState(false)
+  const [showOverview, setShowOverview] = useState(false)
 
   const { monday, sunday } = getWeekDates(currentWeek, currentYear)
   const isThisWeek = currentWeek === getWeekNumber(today) && currentYear === today.getFullYear()
@@ -217,13 +227,11 @@ export default function AdminDashboard({ user, onClose }) {
   // ─── Week nav ───
   function prevWeek() {
     const previous = getAdjacentWeek(currentWeek, currentYear, -1)
-    setCurrentWeek(previous.week)
-    setCurrentYear(previous.year)
+    onWeekChange(previous.week, previous.year)
   }
   function nextWeek() {
     const next = getAdjacentWeek(currentWeek, currentYear, 1)
-    setCurrentWeek(next.week)
-    setCurrentYear(next.year)
+    onWeekChange(next.week, next.year)
   }
 
   // ─── Workout actions ───
@@ -382,6 +390,7 @@ export default function AdminDashboard({ user, onClose }) {
   const filteredTemplates = activeCategory === 'Alle'
     ? templates
     : templates.filter(t => t.category === activeCategory)
+  const selectedWeekKey = getWeekKey(currentWeek, currentYear)
 
   // ─── Render: Template editor modal ───
   if (editingTemplate !== null) {
@@ -476,7 +485,41 @@ export default function AdminDashboard({ user, onClose }) {
               </span>
             </div>
             <button className="nav-btn" onClick={nextWeek}>›</button>
+            <button
+              type="button"
+              className={`nav-btn overview-nav-btn${showOverview ? ' active' : ''}`}
+              onClick={() => setShowOverview(prev => !prev)}
+              aria-expanded={showOverview}
+              aria-controls="admin-birds-eye-overview"
+              aria-label="Vis oversikt for siste 4 og neste 4 uker"
+              title="Siste 4 og neste 4 uker"
+            >
+              <span className="overview-icon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+              </span>
+            </button>
           </div>
+
+          {showOverview && (
+            overviewLoading ? (
+              <div className="birds-eye-loading admin-overview-loading" id="admin-birds-eye-overview">Laster mengdeoversikt...</div>
+            ) : (
+              <div className="admin-overview-wrap" id="admin-birds-eye-overview">
+                <BirdsEyeOverview
+                  weeks={overviewWeeks}
+                  workoutsByWeekKey={overviewWorkoutsByWeekKey}
+                  selectedWeekKey={selectedWeekKey}
+                  onSelectWeek={(week, year) => {
+                    onWeekChange(week, year)
+                    setShowOverview(false)
+                  }}
+                />
+              </div>
+            )
+          )}
 
           <div className="admin-plan-list">
             {loadingWorkouts ? (
