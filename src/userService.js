@@ -13,7 +13,7 @@ export async function createUserProfile(uid, email, displayName, role = 'athlete
     uid,
     email,
     displayName,
-    workoutLayout: 'calendar',
+    workoutLayout: 'list',
     role: getPrimaryRole({ roles }),
     roles,
     createdAt: serverTimestamp(),

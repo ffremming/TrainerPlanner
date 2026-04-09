@@ -1,4 +1,4 @@
-export default function WorkoutLayoutToggle({ value = 'calendar', onChange, compact = false }) {
+export default function WorkoutLayoutToggle({ value = 'list', onChange, compact = false }) {
   return (
     <div className={`layout-toggle${compact ? ' compact' : ''}`} role="tablist" aria-label="Velg visning av økter">
       <button

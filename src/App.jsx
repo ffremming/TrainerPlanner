@@ -44,6 +44,7 @@ import UserManagement from './components/UserManagement'
 import BirdsEyeOverview from './components/BirdsEyeOverview'
 import ActivityIcon from './components/ActivityIcon'
 import SystemIcon from './components/SystemIcon'
+import AthleteSelector from './components/AthleteSelector'
 
 export default function App() {
   const today = new Date()
@@ -80,9 +81,10 @@ export default function App() {
   const isCoach = hasRole(userProfile, 'coach')
   const isAthlete = hasRole(userProfile, 'athlete')
   const canManageWorkouts = isSuperadmin || isCoach
-  const workoutLayout = userProfile?.workoutLayout === 'list' ? 'list' : 'calendar'
+  const workoutLayout = userProfile?.workoutLayout === 'calendar' ? 'calendar' : 'list'
   const selectedAthleteProfile = athletes.find(athlete => athlete.uid === selectedAthleteId) || null
-  const adminWorkoutLayout = selectedAthleteProfile?.workoutLayout === 'list' ? 'list' : 'calendar'
+  const adminWorkoutLayout = selectedAthleteProfile?.workoutLayout === 'calendar' ? 'calendar' : 'list'
+  const activeHomeAthlete = selectedAthleteProfile || (selectedAthleteId === userProfile?.uid ? userProfile : null)
 
   // ─── Auth state ───
   useEffect(() => {
@@ -175,7 +177,9 @@ export default function App() {
     }
   }, [userProfile, isAthlete, isCoach, isSuperadmin])
 
-  const homeAthleteId = userProfile?.uid || user?.uid
+  const homeAthleteId = canManageWorkouts
+    ? (selectedAthleteId || userProfile?.uid || user?.uid)
+    : (userProfile?.uid || user?.uid)
 
   // ─── Home workouts listener (always scoped to current user) ───
   useEffect(() => {
@@ -515,6 +519,22 @@ export default function App() {
       </header>
 
       <main className="main">
+        {canManageWorkouts && athletes.length > 0 && (
+          <div className="main-athlete-selector shell-card">
+            <div className="selector-meta">
+              <span className="selector-label">Aktiv bruker</span>
+              <span className="selector-help">Bytt hvilken utøver du ser i appen.</span>
+            </div>
+            <AthleteSelector
+              athletes={athletes}
+              selectedAthleteId={selectedAthleteId}
+              onSelect={setSelectedAthleteId}
+              currentUserProfile={userProfile}
+              hideLabel
+            />
+          </div>
+        )}
+
         {showOverview && (
           overviewLoading ? (
             <div className="birds-eye-loading" id="birds-eye-overview">Laster ukeoversikt...</div>
@@ -536,10 +556,18 @@ export default function App() {
         ) : workouts.length === 0 ? (
           <div className="empty-state shell-card">
             <div className="empty-icon">WK</div>
-            <div>Ingen økter denne uken</div>
+            <div>
+              Ingen økter denne uken
+              {canManageWorkouts && activeHomeAthlete?.displayName ? ` for ${activeHomeAthlete.displayName}` : ''}
+            </div>
           </div>
         ) : (
           <section className="content-section shell-card">
+            {canManageWorkouts && activeHomeAthlete?.displayName && (
+              <div className="admin-athlete-banner">
+                Viser plan for <strong>{activeHomeAthlete.displayName}</strong>
+              </div>
+            )}
             <div className="week-summary">
               {doneCount}/{workouts.length} fullført denne uken
               <div className="progress-bar">
