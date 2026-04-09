@@ -45,6 +45,7 @@ import BirdsEyeOverview from './components/BirdsEyeOverview'
 import ActivityIcon from './components/ActivityIcon'
 import SystemIcon from './components/SystemIcon'
 import AthleteSelector from './components/AthleteSelector'
+import WorkoutLayoutToggle from './components/WorkoutLayoutToggle'
 
 export default function App() {
   const today = new Date()
@@ -85,6 +86,7 @@ export default function App() {
   const selectedAthleteProfile = athletes.find(athlete => athlete.uid === selectedAthleteId) || null
   const adminWorkoutLayout = selectedAthleteProfile?.workoutLayout === 'calendar' ? 'calendar' : 'list'
   const activeHomeAthlete = selectedAthleteProfile || (selectedAthleteId === userProfile?.uid ? userProfile : null)
+  const homeWorkoutLayout = canManageWorkouts ? adminWorkoutLayout : workoutLayout
 
   // ─── Auth state ───
   useEffect(() => {
@@ -532,6 +534,11 @@ export default function App() {
               currentUserProfile={userProfile}
               hideLabel
             />
+            <WorkoutLayoutToggle
+              value={homeWorkoutLayout}
+              onChange={handleWorkoutLayoutChange}
+              compact
+            />
           </div>
         )}
 
@@ -577,7 +584,7 @@ export default function App() {
                 />
               </div>
             </div>
-            {workoutLayout === 'calendar' ? (
+            {homeWorkoutLayout === 'calendar' ? (
               <div className="program-day-list">
                 {workoutDays.map(day => (
                   <section key={day.value} className="program-day-section">
