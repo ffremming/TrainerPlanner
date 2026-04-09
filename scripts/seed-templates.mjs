@@ -8,7 +8,12 @@ import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
 import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from 'firebase/firestore'
 import { WORKOUT_TEMPLATES } from '../src/workoutTemplates.js'
-import { normalizeIntensityZones } from '../src/utils.js'
+import {
+  getDefaultCooldown,
+  getDefaultWarmup,
+  normalizeIntensityZones,
+  normalizeLoadTag,
+} from '../src/utils.js'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDS-iDj7t9bgG1wBtld0KA4gtfCCxB6yI0',
@@ -26,7 +31,10 @@ const TEMPLATES = WORKOUT_TEMPLATES.map(template => {
     ...fields,
     templateId: id,
     source: 'builtin',
+    cooldown: fields.cooldown || getDefaultCooldown(fields.type, fields.activityTag),
     intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
+    loadTag: normalizeLoadTag(fields.type, fields.intensityZone, fields.loadTag),
+    warmup: fields.warmup || getDefaultWarmup(fields.type, fields.activityTag),
   }
 })
 

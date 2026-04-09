@@ -1,18 +1,121 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 5, 4);
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return request.auth != null && (
+        getUserData().role == role ||
+        ('roles' in getUserData() && role in getUserData().roles)
+      );
+    }
+
+    function isSuperadmin() {
+      return hasRole('superadmin');
+    }
+
+    function isCoachOf(athleteId) {
+      return exists(/databases/$(database)/documents/relationships/$(request.auth.uid + '_' + athleteId));
+    }
+
+    function isTemplateOwner(templateData) {
+      return request.auth != null && templateData.ownerId == request.auth.uid;
+    }
+
+    function isBuiltinTemplate(templateData) {
+      return templateData.source == 'builtin';
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        isSuperadmin() ||
+        hasRole('coach')
+      );
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (
+        isSuperadmin() ||
+        request.auth.uid == userId
+      );
+    }
+
+    // Coach-Athlete Relationships
+    match /relationships/{relationshipId} {
+      allow read: if request.auth != null;
+      allow write: if isSuperadmin();
+    }
+
+    // Workouts
+    match /workouts/{workoutId} {
+      allow read: if request.auth != null && (
+        resource.data.athleteId == request.auth.uid ||
+        isSuperadmin() ||
+        isCoachOf(resource.data.athleteId)
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.athleteId == request.auth.uid ||
+        isSuperadmin() ||
+        isCoachOf(request.resource.data.athleteId)
+      );
+      allow update: if request.auth != null && (
+        resource.data.athleteId == request.auth.uid ||
+        isSuperadmin() ||
+        isCoachOf(resource.data.athleteId)
+      );
+      allow delete: if request.auth != null && (
+        resource.data.athleteId == request.auth.uid ||
+        isSuperadmin() ||
+        isCoachOf(resource.data.athleteId)
+      );
+    }
+
+    // Templates (global, read by all authenticated, write by superadmin/coach)
+    match /templates/{templateId} {
+      allow read: if request.auth != null && (
+        isBuiltinTemplate(resource.data) ||
+        isTemplateOwner(resource.data) ||
+        isSuperadmin()
+      );
+      allow create: if request.auth != null && (
+        isSuperadmin() ||
+        (
+          hasRole('coach') &&
+          request.resource.data.source == 'custom' &&
+          isTemplateOwner(request.resource.data)
+        )
+      );
+      allow update, delete: if request.auth != null && (
+        isSuperadmin() ||
+        (
+          hasRole('coach') &&
+          !isBuiltinTemplate(resource.data) &&
+          isTemplateOwner(resource.data)
+        )
+      );
+    }
+
+    // Tests
+    match /tests/{testId} {
+      allow read: if request.auth != null && (
+        resource.data.athleteId == request.auth.uid ||
+        isSuperadmin() ||
+        isCoachOf(resource.data.athleteId)
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.athleteId == request.auth.uid ||
+        isSuperadmin() ||
+        isCoachOf(request.resource.data.athleteId)
+      );
+      allow update, delete: if request.auth != null && (
+        resource.data.athleteId == request.auth.uid ||
+        isSuperadmin() ||
+        isCoachOf(resource.data.athleteId)
+      );
     }
   }
 }

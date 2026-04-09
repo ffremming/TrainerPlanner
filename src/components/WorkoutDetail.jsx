@@ -1,19 +1,50 @@
 import { useEffect, useState } from 'react'
-import { ZONE_COLORS, ZONE_INFO, TYPE_COLORS, TYPE_ICONS, WORKOUT_TYPES, formatIntensityZoneLabel, normalizeIntensityZone, normalizeIntensityZones } from '../utils'
+import {
+  ACTIVITY_TAG_MAP,
+  LOAD_TAG_MAP,
+  ZONE_COLORS,
+  ZONE_INFO,
+  TYPE_COLORS,
+  TYPE_ICONS,
+  WORKOUT_TYPES,
+  formatIntensityZoneLabel,
+  formatWorkoutSchedule,
+  normalizeIntensityZone,
+  normalizeIntensityZones,
+} from '../utils'
 import WorkoutForm from './WorkoutForm'
 import IntensityScaleModal from './IntensityScaleModal'
+import ActivityIcon from './ActivityIcon'
+import SystemIcon from './SystemIcon'
 
-export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onToggleComplete, onEdit, onSaveComment, onReplace }) {
+const SUBJECTIVE_SCORE_OPTIONS = [
+  { value: 1, label: '1', helper: 'Tom' },
+  { value: 2, label: '2', helper: 'Tung' },
+  { value: 3, label: '3', helper: 'Lav' },
+  { value: 4, label: '4', helper: 'Under pari' },
+  { value: 5, label: '5', helper: 'Noytral' },
+  { value: 6, label: '6', helper: 'Ok' },
+  { value: 7, label: '7', helper: 'Bra' },
+  { value: 8, label: '8', helper: 'Skarp' },
+  { value: 9, label: '9', helper: 'Veldig bra' },
+  { value: 10, label: '10', helper: 'Klar til race' },
+]
+
+export default function WorkoutDetail({ workout, onClose, canEdit, onDelete, onToggleComplete, onEdit, onSaveComment, onReplace }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(workout ? { ...workout } : {})
   const [showScale, setShowScale] = useState(false)
   const [commentDraft, setCommentDraft] = useState(workout?.userComment || '')
+  const [formScoreDraft, setFormScoreDraft] = useState(workout?.formScore ?? 5)
+  const [surplusScoreDraft, setSurplusScoreDraft] = useState(workout?.surplusScore ?? 5)
   const [commentSaving, setCommentSaving] = useState(false)
 
   useEffect(() => {
     if (!workout) return
     setForm({ ...workout })
     setCommentDraft(workout.userComment || '')
+    setFormScoreDraft(workout.formScore ?? 5)
+    setSurplusScoreDraft(workout.surplusScore ?? 5)
   }, [workout])
 
   if (!workout) return null
@@ -22,9 +53,12 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
   const zone = normalizeIntensityZone(workout.type, workout.intensityZone)
   const colors = zone ? ZONE_COLORS[zone] : null
   const typeColors = TYPE_COLORS[workout.type] || TYPE_COLORS.annet
-  const icon = TYPE_ICONS[workout.type] || '📋'
+  const icon = TYPE_ICONS[workout.type] || 'AN'
   const typeLabel = WORKOUT_TYPES.find(t => t.value === workout.type)?.label || workout.type
   const zoneLabel = formatIntensityZoneLabel(zones)
+  const activityTag = workout.activityTag ? ACTIVITY_TAG_MAP[workout.activityTag] : null
+  const loadTag = workout.loadTag ? LOAD_TAG_MAP[workout.loadTag] : null
+  const scheduleLabel = formatWorkoutSchedule(workout)
   const isStrengthWorkout = workout.type === 'styrke' || workout.type === 'molle'
   const isRunningWorkout = ['interval', 'terskel', 'rolig', 'molle'].includes(workout.type)
   const exerciseLines = (workout.exercises || workout.description || '')
@@ -47,7 +81,11 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
     if (commentSaving) return
     setCommentSaving(true)
     try {
-      await onSaveComment(workout, commentDraft.trim())
+      await onSaveComment(workout, {
+        userComment: commentDraft.trim(),
+        formScore: formScoreDraft,
+        surplusScore: surplusScoreDraft,
+      })
     } finally {
       setCommentSaving(false)
     }
@@ -57,10 +95,10 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
     return (
       <div className="modal-backdrop" onClick={handleBackdrop}>
         <div className="modal add-modal">
-          <button className="modal-close" onClick={() => setEditing(false)}>✕</button>
+          <button className="modal-close" onClick={() => setEditing(false)}><SystemIcon name="close" className="system-icon" /></button>
           <h2 className="modal-title-h2">Rediger økt</h2>
           <form onSubmit={handleSave}>
-            <WorkoutForm value={form} onChange={setForm} />
+            <WorkoutForm value={form} onChange={setForm} showScheduleFields />
             <div className="form-actions" style={{ marginTop: '1rem' }}>
               <button type="button" className="btn-cancel" onClick={() => setEditing(false)}>Avbryt</button>
               <button type="submit" className="btn-save">Lagre</button>
@@ -74,13 +112,33 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
       <div className="modal" style={{ borderTop: `4px solid ${zone && colors ? colors.border : typeColors.border}` }}>
-        <button className="modal-close" onClick={onClose}>✕</button>
+        <button className="modal-close" onClick={onClose}><SystemIcon name="close" className="system-icon" /></button>
 
         <div className="modal-header">
-          <span className="modal-icon">{icon}</span>
+          <span className="modal-icon"><ActivityIcon name={icon} className="ui-icon" /></span>
           <div>
+            {scheduleLabel && <div className="modal-date">{scheduleLabel}</div>}
             <div className="modal-title">{workout.title}</div>
-            <div className="modal-type">{typeLabel}</div>
+            <div className="modal-type">
+              {typeLabel}
+              {activityTag && (
+                <span
+                  className="activity-tag-pill"
+                  style={{ '--tag-color': activityTag.color, '--tag-bg': activityTag.bg }}
+                >
+                  <span className="activity-tag-icon" aria-hidden="true"><ActivityIcon name={activityTag.icon} className="tag-icon-svg" /></span>
+                  <span>{activityTag.label}</span>
+                </span>
+              )}
+              {loadTag && (
+                <span
+                  className="load-tag-pill"
+                  style={{ '--load-color': loadTag.color, '--load-bg': loadTag.bg }}
+                >
+                  <span>{loadTag.label}</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -152,6 +210,49 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
 
         <div className="modal-section">
           <div className="section-label">Kommentar på økten</div>
+          <div className="subjective-score-grid">
+            <div className="subjective-score-panel">
+              <div className="subjective-score-header">
+                <strong>Form</strong>
+                <span>{formScoreDraft}/10</span>
+              </div>
+              <div className="subjective-score-options">
+                {SUBJECTIVE_SCORE_OPTIONS.map(option => (
+                  <button
+                    key={`form-${option.value}`}
+                    type="button"
+                    className={`subjective-score-btn${formScoreDraft === option.value ? ' active' : ''}`}
+                    onClick={() => setFormScoreDraft(option.value)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.helper}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="subjective-score-copy">Hvordan kjentes kroppen i selve økten?</div>
+            </div>
+
+            <div className="subjective-score-panel">
+              <div className="subjective-score-header">
+                <strong>Overskudd</strong>
+                <span>{surplusScoreDraft}/10</span>
+              </div>
+              <div className="subjective-score-options">
+                {SUBJECTIVE_SCORE_OPTIONS.map(option => (
+                  <button
+                    key={`surplus-${option.value}`}
+                    type="button"
+                    className={`subjective-score-btn${surplusScoreDraft === option.value ? ' active' : ''}`}
+                    onClick={() => setSurplusScoreDraft(option.value)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.helper}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="subjective-score-copy">Hvor mye mental og fysisk friskhet hadde du?</div>
+            </div>
+          </div>
           <textarea
             className="workout-comment-input"
             value={commentDraft}
@@ -163,7 +264,14 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
             <button
               className="btn-save-comment"
               onClick={handleSaveComment}
-              disabled={commentSaving || commentDraft.trim() === (workout.userComment || '').trim()}
+              disabled={
+                commentSaving
+                || (
+                  commentDraft.trim() === (workout.userComment || '').trim()
+                  && formScoreDraft === (workout.formScore ?? 5)
+                  && surplusScoreDraft === (workout.surplusScore ?? 5)
+                )
+              }
             >
               {commentSaving ? 'Lagrer...' : 'Lagre kommentar'}
             </button>
@@ -192,8 +300,8 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
                     style={{ backgroundColor: zoneColors.bg, borderColor: zoneColors.border }}
                   >
                     <strong style={{ color: zoneColors.text }}>{zoneColors.label}</strong>
-                    <span>❤️ {zoneInfo.hr} bpm</span>
-                    <span>💬 {zoneInfo.breathing}</span>
+                    <span>HR {zoneInfo.hr} bpm</span>
+                    <span>Pust {zoneInfo.breathing}</span>
                   </div>
                 )
               })}
@@ -211,16 +319,16 @@ export default function WorkoutDetail({ workout, onClose, isAdmin, onDelete, onT
             className={`btn-complete${workout.completed ? ' done' : ''}`}
             onClick={() => onToggleComplete(workout)}
           >
-            {workout.completed ? '✓ Fullført!' : 'Marker som fullført'}
+            {workout.completed ? 'Fullført' : 'Marker som fullført'}
           </button>
-          {onReplace && (
-            <button className="btn-edit" onClick={() => onReplace(workout)}>⇄</button>
+          {onReplace && canEdit && (
+            <button className="btn-edit" onClick={() => onReplace(workout)}><SystemIcon name="replace" className="button-icon" />Bytt</button>
           )}
-          {isAdmin && (
-            <button className="btn-edit" onClick={() => setEditing(true)}>✏️</button>
+          {canEdit && onEdit && (
+            <button className="btn-edit" onClick={() => setEditing(true)}><SystemIcon name="edit" className="button-icon" />Rediger</button>
           )}
-          {isAdmin && (
-            <button className="btn-delete" onClick={() => onDelete(workout)}>🗑</button>
+          {canEdit && onDelete && (
+            <button className="btn-delete" onClick={() => onDelete(workout)}><SystemIcon name="delete" className="button-icon" />Slett</button>
           )}
         </div>
       </div>

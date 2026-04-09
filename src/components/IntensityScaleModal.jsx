@@ -1,4 +1,5 @@
 import { ZONE_INFO } from '../utils'
+import SystemIcon from './SystemIcon'
 
 const ZONE_DISPLAY = {
   1: { bg: '#d1d5db', headerBg: '#9ca3af', label: 'Intensitetssone 1' },
@@ -16,7 +17,7 @@ export default function IntensityScaleModal({ onClose }) {
   return (
     <div className="modal-backdrop" onClick={handleBackdrop} style={{ zIndex: 200 }}>
       <div className="modal" style={{ padding: '1.5rem 1rem 2rem' }}>
-        <button className="modal-close" onClick={onClose}>✕</button>
+        <button className="modal-close" onClick={onClose}><SystemIcon name="close" className="system-icon" /></button>
         <h2 className="modal-title-h2">Din intensitetsskala</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {[1, 2, 3, 4, 5].map(zone => {

@@ -6,24 +6,44 @@ import {
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 import {
+  compareWorkoutsBySchedule,
   TYPE_COLORS,
   TYPE_ICONS,
   ZONE_COLORS,
+  formatWorkoutTime,
+  getDateStringForWeekday,
   getAdjacentWeek,
+  getDefaultCooldown,
+  getDefaultWarmup,
   getIntensityZoneLabel,
   getWeekKey,
   getWeekNumber,
   getWeekDates,
   getWeekWindow,
+  groupWorkoutsByWeekday,
+  normalizeLoadTag,
   normalizeIntensityZone,
   normalizeIntensityZones,
   normalizeWorkout,
 } from './utils'
+import { mergeTemplates } from './templateLibrary'
+import {
+  getUserProfile,
+  createUserProfile,
+  onUserProfileSnapshot,
+  onCoachAthletesSnapshot,
+  onAllUsersSnapshot,
+  updateUserProfile,
+} from './userService'
+import { hasRole } from './roles'
 import WorkoutCard from './components/WorkoutCard'
 import WorkoutDetail from './components/WorkoutDetail'
 import Login from './components/Login'
 import AdminDashboard from './components/AdminDashboard'
+import UserManagement from './components/UserManagement'
 import BirdsEyeOverview from './components/BirdsEyeOverview'
+import ActivityIcon from './components/ActivityIcon'
+import SystemIcon from './components/SystemIcon'
 
 export default function App() {
   const today = new Date()
@@ -35,41 +55,161 @@ export default function App() {
   const [overviewLoading, setOverviewLoading] = useState(true)
 
   const [user, setUser] = useState(undefined)
+  const [userProfile, setUserProfile] = useState(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+
   const [showLogin, setShowLogin] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showUserManagement, setShowUserManagement] = useState(false)
   const [showOverview, setShowOverview] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState(null)
   const [templates, setTemplates] = useState([])
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [replacementTarget, setReplacementTarget] = useState(null)
 
+  // Athletes for coach/superadmin
+  const [athletes, setAthletes] = useState([])
+  const [selectedAthleteId, setSelectedAthleteId] = useState(null)
+
   const overviewWeeks = getWeekWindow(currentWeek, currentYear, 4, 4)
   const overviewWeekKeys = new Set(overviewWeeks.map(week => week.key))
   const selectedWeekKey = getWeekKey(currentWeek, currentYear)
 
+  // Role flags
+  const isSuperadmin = hasRole(userProfile, 'superadmin')
+  const isCoach = hasRole(userProfile, 'coach')
+  const isAthlete = hasRole(userProfile, 'athlete')
+  const canManageWorkouts = isSuperadmin || isCoach
+  const workoutLayout = userProfile?.workoutLayout === 'list' ? 'list' : 'calendar'
+  const selectedAthleteProfile = athletes.find(athlete => athlete.uid === selectedAthleteId) || null
+  const adminWorkoutLayout = selectedAthleteProfile?.workoutLayout === 'list' ? 'list' : 'calendar'
+
+  // ─── Auth state ───
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setUser(u))
     return unsub
   }, [])
 
+  // ─── User profile loading + auto-create superadmin ───
   useEffect(() => {
+    if (!user) {
+      setUserProfile(null)
+      setProfileLoading(false)
+      return
+    }
+
+    setProfileLoading(true)
+    let cancelled = false
+
+    async function initProfile() {
+      const existing = await getUserProfile(user.uid)
+      if (cancelled) return
+
+      if (!existing) {
+        // First user with no profile becomes superadmin
+        await createUserProfile(user.uid, user.email, user.email.split('@')[0], 'superadmin')
+      }
+
+      // Start real-time listener
+      const unsub = onUserProfileSnapshot(user.uid, profile => {
+        if (!cancelled) {
+          setUserProfile(profile)
+          setProfileLoading(false)
+        }
+      })
+
+      return unsub
+    }
+
+    let unsubProfile = null
+    initProfile().then(unsub => { unsubProfile = unsub })
+
+    return () => {
+      cancelled = true
+      if (unsubProfile) unsubProfile()
+    }
+  }, [user])
+
+  // ─── Load athletes for coach/superadmin ───
+  useEffect(() => {
+    if (!userProfile) {
+      setAthletes([])
+      setSelectedAthleteId(null)
+      return
+    }
+
+    if (isCoach) {
+      const unsub = onCoachAthletesSnapshot(userProfile.uid, athleteList => {
+        const nextAthletes = [
+          userProfile,
+          ...athleteList.filter(a => a.uid !== userProfile.uid),
+        ]
+
+        setAthletes(nextAthletes)
+        setSelectedAthleteId(prev => {
+          if (prev && nextAthletes.some(a => a.uid === prev)) return prev
+          return userProfile.uid
+        })
+      })
+      return unsub
+    }
+
+    if (isSuperadmin) {
+      const unsub = onAllUsersSnapshot(allUsers => {
+        const athleteList = allUsers.filter(u => hasRole(u, 'athlete'))
+        setAthletes(athleteList)
+        setSelectedAthleteId(prev => {
+          if (prev && allUsers.some(a => a.uid === prev)) return prev
+          // Default to self, or first athlete
+          if (allUsers.some(a => a.uid === userProfile.uid)) return userProfile.uid
+          return athleteList.length > 0 ? athleteList[0].uid : userProfile.uid
+        })
+      })
+      return unsub
+    }
+
+    if (isAthlete) {
+      setSelectedAthleteId(userProfile.uid)
+      setAthletes([userProfile])
+      return
+    }
+  }, [userProfile, isAthlete, isCoach, isSuperadmin])
+
+  const homeAthleteId = userProfile?.uid || user?.uid
+
+  // ─── Home workouts listener (always scoped to current user) ───
+  useEffect(() => {
+    if (!homeAthleteId) {
+      setWorkouts([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const q = query(
       collection(db, 'workouts'),
+      where('athleteId', '==', homeAthleteId),
       where('year', '==', currentYear),
       where('week', '==', currentWeek)
     )
     const unsub = onSnapshot(q, snap => {
       const docs = snap.docs
         .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .sort(compareWorkoutsBySchedule)
       setWorkouts(docs)
       setLoading(false)
     })
     return unsub
-  }, [currentWeek, currentYear])
+  }, [currentWeek, currentYear, homeAthleteId])
 
+  // ─── Home overview workouts listener (always scoped to current user) ───
   useEffect(() => {
+    if (!homeAthleteId) {
+      setOverviewWorkouts([])
+      setOverviewLoading(false)
+      return
+    }
+
     setOverviewLoading(true)
     setOverviewWorkouts([])
 
@@ -78,7 +218,11 @@ export default function App() {
     const loadedYears = new Set()
 
     const unsubscribers = years.map(year => onSnapshot(
-      query(collection(db, 'workouts'), where('year', '==', year)),
+      query(
+        collection(db, 'workouts'),
+        where('athleteId', '==', homeAthleteId),
+        where('year', '==', year)
+      ),
       snap => {
         for (const [id, workout] of [...workoutMap.entries()]) {
           if (workout.year === year) {
@@ -99,7 +243,7 @@ export default function App() {
           [...workoutMap.values()].sort((a, b) => {
             if (a.year !== b.year) return a.year - b.year
             if (a.week !== b.week) return a.week - b.week
-            return (a.order ?? 0) - (b.order ?? 0)
+            return compareWorkoutsBySchedule(a, b)
           })
         )
         if (loadedYears.size >= years.length) {
@@ -109,7 +253,7 @@ export default function App() {
     ))
 
     return () => unsubscribers.forEach(unsub => unsub())
-  }, [currentWeek, currentYear])
+  }, [currentWeek, currentYear, homeAthleteId])
 
   useEffect(() => {
     if (!selectedWorkout) return
@@ -121,21 +265,25 @@ export default function App() {
     setSelectedWorkout(null)
   }, [workouts, selectedWorkout])
 
+  // ─── Templates listener ───
   useEffect(() => {
     setLoadingTemplates(true)
-    const unsub = onSnapshot(collection(db, 'templates'), snap => {
-      const docs = snap.docs
-        .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
-          const categoryCompare = (a.category || '').localeCompare(b.category || '')
-          if (categoryCompare !== 0) return categoryCompare
-          return (a.title || '').localeCompare(b.title || '')
-        })
-      setTemplates(docs)
+    if (!userProfile?.uid) {
+      setTemplates(mergeTemplates())
       setLoadingTemplates(false)
-    })
+      return
+    }
+
+    const unsub = onSnapshot(
+      query(collection(db, 'templates'), where('ownerId', '==', userProfile.uid)),
+      snap => {
+        const customTemplates = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        setTemplates(mergeTemplates(customTemplates))
+        setLoadingTemplates(false)
+      }
+    )
     return unsub
-  }, [])
+  }, [userProfile?.uid])
 
   function prevWeek() {
     const previous = getAdjacentWeek(currentWeek, currentYear, -1)
@@ -169,13 +317,19 @@ export default function App() {
     }
   }
 
-  async function handleSaveComment(workout, userComment) {
+  async function handleSaveComment(workout, payload) {
+    const userComment = typeof payload === 'string' ? payload : payload.userComment
+    const formScore = typeof payload === 'string' ? (workout.formScore ?? null) : payload.formScore
+    const surplusScore = typeof payload === 'string' ? (workout.surplusScore ?? null) : payload.surplusScore
+
     await updateDoc(doc(db, 'workouts', workout.id), {
       userComment,
+      formScore,
+      surplusScore,
       userCommentUpdatedAt: serverTimestamp(),
     })
     if (selectedWorkout?.id === workout.id) {
-      setSelectedWorkout(prev => ({ ...prev, userComment }))
+      setSelectedWorkout(prev => ({ ...prev, userComment, formScore, surplusScore }))
     }
   }
 
@@ -193,11 +347,18 @@ export default function App() {
     if (!shouldReplace) return
 
     const { id, createdAt, updatedAt, templateId, source, ...fields } = template
+    const intensityZone = normalizeIntensityZones(fields.type, fields.intensityZone)
     await updateDoc(doc(db, 'workouts', replacementTarget.id), {
       ...fields,
-      intensityZone: normalizeIntensityZones(fields.type, fields.intensityZone),
+      intensityZone,
+      loadTag: normalizeLoadTag(fields.type, intensityZone, fields.loadTag),
+      warmup: fields.warmup?.trim() || getDefaultWarmup(fields.type, fields.activityTag),
+      cooldown: fields.cooldown?.trim() || getDefaultCooldown(fields.type, fields.activityTag),
       week: replacementTarget.week,
       year: replacementTarget.year,
+      weekday: replacementTarget.weekday,
+      date: replacementTarget.date,
+      time: replacementTarget.time || '',
       order: replacementTarget.order ?? 0,
       completed: false,
       completedAt: null,
@@ -213,10 +374,16 @@ export default function App() {
     setReplacementTarget(null)
   }
 
+  async function handleWorkoutLayoutChange(nextLayout) {
+    const targetUserId = selectedAthleteId || userProfile?.uid
+    if (!targetUserId || nextLayout === adminWorkoutLayout) return
+    await updateUserProfile(targetUserId, { workoutLayout: nextLayout })
+  }
+
   const { monday, sunday } = getWeekDates(currentWeek, currentYear)
   const doneCount = workouts.filter(w => w.completed).length
   const isThisWeek = currentWeek === getWeekNumber(today) && currentYear === today.getFullYear()
-  const isAdmin = !!user
+  const workoutDays = groupWorkoutsByWeekday(workouts)
   const overviewByWeekKey = overviewWorkouts.reduce((acc, workout) => {
     const key = getWeekKey(workout.week, workout.year)
     if (!acc[key]) acc[key] = []
@@ -224,66 +391,127 @@ export default function App() {
     return acc
   }, {})
 
-  if (showAdmin && isAdmin) {
+  // ─── Auth loading state ───
+  if (user === undefined || (user && profileLoading)) {
+    return (
+      <div className="app">
+        <div className="auth-screen">
+          <div className="auth-screen-inner">
+            <div className="login-header">
+              <span className="login-icon">TP</span>
+              <h2 className="modal-title-h2">Treningsplan</h2>
+            </div>
+            <div className="empty-state">Laster...</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Not authenticated: show login ───
+  if (!user) {
+    return (
+      <div className="app">
+        <Login fullScreen onClose={() => {}} />
+      </div>
+    )
+  }
+
+  // ─── User Management (superadmin) ───
+  if (showUserManagement && isSuperadmin) {
+    return (
+      <UserManagement
+        currentUser={userProfile}
+        onClose={() => setShowUserManagement(false)}
+      />
+    )
+  }
+
+  // ─── Admin Dashboard ───
+  if (showAdmin && canManageWorkouts) {
     return (
       <AdminDashboard
         user={user}
+        userProfile={userProfile}
         onClose={() => setShowAdmin(false)}
         currentWeek={currentWeek}
         currentYear={currentYear}
         onWeekChange={handleWeekChange}
         overviewWeeks={overviewWeeks}
-        overviewWorkoutsByWeekKey={overviewByWeekKey}
-        overviewLoading={overviewLoading}
+        selectedAthleteId={selectedAthleteId}
+        athletes={athletes}
+        onSelectAthlete={setSelectedAthleteId}
+        workoutLayout={adminWorkoutLayout}
+        onWorkoutLayoutChange={handleWorkoutLayoutChange}
+        onOpenUserManagement={isSuperadmin ? () => {
+          setShowAdmin(false)
+          setShowUserManagement(true)
+        } : null}
       />
     )
   }
 
+  // ─── Athlete name for display ───
   return (
     <div className="app">
       <header className="header">
         <div className="header-top">
-          <h1 className="app-title">Treningsplan</h1>
-          {user === undefined ? null : user ? (
-            <button className="admin-btn active" onClick={() => setShowAdmin(true)} title="Admin">
-              ⚙️
-            </button>
-          ) : (
-            <button className="admin-btn" onClick={() => setShowLogin(true)} title="Logg inn">
-              🔒
-            </button>
-          )}
+          <div className="brand-block">
+            <span className="brand-eyebrow">Training Planner</span>
+            <div className="brand-row">
+              <h1 className="app-title">Treningsplan</h1>
+            </div>
+          </div>
+          <div className="header-actions">
+            {isSuperadmin && (
+              <button
+                className="admin-btn"
+                onClick={() => setShowUserManagement(true)}
+                title="Brukere"
+              >
+                <SystemIcon name="users" className="system-icon" />
+              </button>
+            )}
+            {canManageWorkouts && (
+              <button className="admin-btn active" onClick={() => setShowAdmin(true)} title="Admin">
+                <SystemIcon name="settings" className="system-icon" />
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="week-nav">
-          <button className="nav-btn" onClick={prevWeek}>‹</button>
-          <div className="week-info" onClick={goToToday}>
-            <span className="week-label">
-              Uke {currentWeek}
-              {isThisWeek && <span className="this-week-dot"> •</span>}
-            </span>
-            <span className="week-dates">
-              {monday.getDate()}.{monday.getMonth() + 1} – {sunday.getDate()}.{sunday.getMonth() + 1}.{sunday.getFullYear()}
-            </span>
+        <div className="week-nav-shell shell-card">
+          <div className="week-nav">
+            <button className="nav-btn" onClick={prevWeek}>‹</button>
+            <div className="week-info" onClick={goToToday}>
+              <span className="week-label">
+                Uke {currentWeek}
+                {isThisWeek && <span className="this-week-dot" aria-hidden="true" />}
+              </span>
+              <span className="week-dates">
+                {monday.getDate()}.{monday.getMonth() + 1} – {sunday.getDate()}.{sunday.getMonth() + 1}.{sunday.getFullYear()}
+              </span>
+            </div>
+            <button className="nav-btn" onClick={nextWeek}>›</button>
+            <button
+              type="button"
+              className={`nav-btn overview-nav-btn${showOverview ? ' active' : ''}`}
+              onClick={() => setShowOverview(prev => !prev)}
+              aria-expanded={showOverview}
+              aria-controls="birds-eye-overview"
+              aria-label="Vis oversikt for siste 4 og neste 4 uker"
+              title="Siste 4 og neste 4 uker"
+            >
+              <span className="overview-icon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+              </span>
+            </button>
           </div>
-          <button className="nav-btn" onClick={nextWeek}>›</button>
-          <button
-            type="button"
-            className={`nav-btn overview-nav-btn${showOverview ? ' active' : ''}`}
-            onClick={() => setShowOverview(prev => !prev)}
-            aria-expanded={showOverview}
-            aria-controls="birds-eye-overview"
-            aria-label="Vis oversikt for siste 4 og neste 4 uker"
-            title="Siste 4 og neste 4 uker"
-          >
-            <span className="overview-icon" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
         </div>
+
       </header>
 
       <main className="main">
@@ -304,14 +532,14 @@ export default function App() {
         )}
 
         {loading ? (
-          <div className="empty-state">Laster...</div>
+          <div className="empty-state shell-card">Laster...</div>
         ) : workouts.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">🏃</div>
+          <div className="empty-state shell-card">
+            <div className="empty-icon">WK</div>
             <div>Ingen økter denne uken</div>
           </div>
         ) : (
-          <>
+          <section className="content-section shell-card">
             <div className="week-summary">
               {doneCount}/{workouts.length} fullført denne uken
               <div className="progress-bar">
@@ -321,18 +549,67 @@ export default function App() {
                 />
               </div>
             </div>
-            <div className="workout-list">
-              {workouts.map((w, idx) => (
-                <WorkoutCard
-                  key={w.id}
-                  workout={w}
-                  index={idx}
-                  onClick={setSelectedWorkout}
-                  onToggleComplete={handleToggleComplete}
-                />
-              ))}
-            </div>
-          </>
+            {workoutLayout === 'calendar' ? (
+              <div className="program-day-list">
+                {workoutDays.map(day => (
+                  <section key={day.value} className="program-day-section">
+                    <div className="program-day-header">
+                      <div>
+                        <h2 className="program-day-title">{day.label}</h2>
+                        <div className="program-day-meta">
+                          {day.workouts.length > 0 ? `${day.workouts.length} økt${day.workouts.length > 1 ? 'er' : ''}` : 'Hvile / ingen økter'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {day.workouts.length === 0 ? (
+                      <div className="program-day-slots" style={{ '--slot-count': 2 }}>
+                        <div className="program-day-empty-slot">Ledig slot</div>
+                        <div className="program-day-empty-slot">Ledig slot</div>
+                      </div>
+                    ) : (
+                      <div
+                        className="program-day-slots"
+                        style={{ '--slot-count': Math.max(2, day.workouts.length) }}
+                      >
+                        {Array.from({ length: Math.max(2, day.workouts.length) }, (_, idx) => {
+                          const workout = day.workouts[idx]
+                          if (!workout) {
+                            return <div key={`empty-${day.value}-${idx}`} className="program-day-empty-slot">Ledig slot</div>
+                          }
+
+                          return (
+                            <WorkoutCard
+                              key={workout.id}
+                              workout={workout}
+                              index={idx}
+                              indexLabel={formatWorkoutTime(workout)}
+                              showSchedule={false}
+                              slotLayout
+                              onClick={setSelectedWorkout}
+                              onToggleComplete={handleToggleComplete}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="workout-list">
+                {workouts.map((workout, index) => (
+                  <WorkoutCard
+                    key={workout.id}
+                    workout={workout}
+                    index={index}
+                    onClick={setSelectedWorkout}
+                    onToggleComplete={handleToggleComplete}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         )}
       </main>
 
@@ -340,19 +617,28 @@ export default function App() {
         <WorkoutDetail
           workout={selectedWorkout}
           onClose={() => setSelectedWorkout(null)}
-          isAdmin={isAdmin}
-          onReplace={handleStartReplaceWorkout}
-          onDelete={async (w) => {
+          canEdit={canManageWorkouts}
+          onReplace={canManageWorkouts ? handleStartReplaceWorkout : undefined}
+          onDelete={canManageWorkouts ? async (w) => {
             await deleteDoc(doc(db, 'workouts', w.id))
             setSelectedWorkout(null)
-          }}
+          } : undefined}
           onToggleComplete={handleToggleComplete}
           onSaveComment={handleSaveComment}
-          onEdit={async (updated) => {
+          onEdit={canManageWorkouts ? async (updated) => {
             const { id, ...fields } = updated
-            await updateDoc(doc(db, 'workouts', id), fields)
+            const intensityZone = normalizeIntensityZones(fields.type, fields.intensityZone)
+            await updateDoc(doc(db, 'workouts', id), {
+              ...fields,
+              weekday: Number(fields.weekday),
+              date: getDateStringForWeekday(updated.week, updated.year, fields.weekday),
+              intensityZone,
+              loadTag: normalizeLoadTag(fields.type, intensityZone, fields.loadTag),
+              warmup: fields.warmup?.trim() || getDefaultWarmup(fields.type, fields.activityTag),
+              cooldown: fields.cooldown?.trim() || getDefaultCooldown(fields.type, fields.activityTag),
+            })
             setSelectedWorkout(null)
-          }}
+          } : undefined}
         />
       )}
 
@@ -379,7 +665,7 @@ function TemplatePickerModal({ targetWorkout, templates, loading, onClose, onPic
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
       <div className="modal add-modal">
-        <button className="modal-close" onClick={onClose}>✕</button>
+        <button className="modal-close" onClick={onClose}><SystemIcon name="close" className="system-icon" /></button>
         <h2 className="modal-title-h2">Bytt økt</h2>
         <p className="template-picker-subtitle">
           Velg en ny økt fra øktbanken for å erstatte &quot;{targetWorkout.title}&quot;.
@@ -410,7 +696,7 @@ function TemplatePickerCard({ template, onPick }) {
   const zone = normalizeIntensityZone(template.type, template.intensityZone)
   const zoneColors = zone ? ZONE_COLORS[zone] : null
   const zoneLabel = getIntensityZoneLabel(template)
-  const icon = TYPE_ICONS[template.type] || '📋'
+  const icon = TYPE_ICONS[template.type] || 'AN'
 
   return (
     <div
@@ -419,7 +705,7 @@ function TemplatePickerCard({ template, onPick }) {
     >
       <div className="template-card-top">
         <div className="template-card-left">
-          <span className="template-icon">{icon}</span>
+          <span className="template-icon"><ActivityIcon name={icon} className="ui-icon" /></span>
           <div>
             <div className="template-title">{template.title}</div>
             {template.category && <div className="template-category">{template.category}</div>}

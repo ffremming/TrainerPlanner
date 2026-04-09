@@ -88,6 +88,56 @@ export function getWeekKey(week, year) {
   return `${year}-${String(week).padStart(2, '0')}`
 }
 
+export const WEEKDAY_OPTIONS = [
+  { value: 1, label: 'Mandag', shortLabel: 'Man' },
+  { value: 2, label: 'Tirsdag', shortLabel: 'Tir' },
+  { value: 3, label: 'Onsdag', shortLabel: 'Ons' },
+  { value: 4, label: 'Torsdag', shortLabel: 'Tor' },
+  { value: 5, label: 'Fredag', shortLabel: 'Fre' },
+  { value: 6, label: 'Lørdag', shortLabel: 'Lør' },
+  { value: 7, label: 'Søndag', shortLabel: 'Søn' },
+]
+
+export function formatDateForStorage(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+export function getDateForWeekday(week, year, weekday) {
+  const normalizedWeekday = normalizeWeekday(weekday)
+  const { monday } = getWeekDates(week, year)
+  const date = new Date(monday)
+  date.setDate(monday.getDate() + normalizedWeekday - 1)
+  return date
+}
+
+export function getDateStringForWeekday(week, year, weekday) {
+  if (!week || !year) return ''
+  return formatDateForStorage(getDateForWeekday(week, year, weekday))
+}
+
+export function getWeekdayMeta(weekday) {
+  return WEEKDAY_OPTIONS.find(option => option.value === normalizeWeekday(weekday)) || WEEKDAY_OPTIONS[0]
+}
+
+export function normalizeWeekday(weekday) {
+  const parsed = Number(weekday)
+  if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 7) return parsed
+  return 1
+}
+
+export function getWeekdayFromDate(dateValue) {
+  if (!dateValue) return null
+  const [year, month, day] = String(dateValue).split('-').map(Number)
+  if (!year || !month || !day) return null
+
+  const jsWeekday = new Date(year, month - 1, day).getDay()
+  return jsWeekday === 0 ? 7 : jsWeekday
+}
+
 export function parseDistanceValue(distance) {
   if (typeof distance !== 'string') return null
   const match = distance.replace(',', '.').match(/(\d+(?:\.\d+)?)/)
@@ -103,6 +153,89 @@ export function getWeeklyDistance(workouts) {
     const distance = getWorkoutDistance(workout)
     return distance === null ? sum : sum + distance
   }, 0)
+}
+
+export function parseDurationFromText(value) {
+  if (!value || typeof value !== 'string') return 0
+
+  const hourMatch = value.match(/(\d+(?:[.,]\d+)?)\s*(t|h|time|timer)/i)
+  const minuteMatch = value.match(/(\d+(?:[.,]\d+)?)\s*(m|min|mins|minutter)/i)
+
+  const hours = hourMatch ? Number(hourMatch[1].replace(',', '.')) * 60 : 0
+  const minutes = minuteMatch ? Number(minuteMatch[1].replace(',', '.')) : 0
+
+  return Math.round(hours + minutes)
+}
+
+export function estimateWorkoutDuration(workout) {
+  const explicitDuration =
+    parseDurationFromText(workout?.notes) ||
+    parseDurationFromText(workout?.sessionDetails) ||
+    parseDurationFromText(workout?.description) ||
+    parseDurationFromText(workout?.title)
+
+  if (explicitDuration > 0) return explicitDuration
+
+  const distance = getWorkoutDistance(workout)
+  if (!distance) return 0
+
+  if (workout?.activityTag === 'bike') return Math.round(distance * 2.7)
+  if (workout?.activityTag === 'swim') return Math.round(distance * 20)
+  if (workout?.activityTag === 'xc_skiing') return Math.round(distance * 4.8)
+  return Math.round(distance * 6)
+}
+
+export function getWorkoutIntensityFactor(workout) {
+  const zones = normalizeIntensityZones(workout?.type, workout?.intensityZone)
+  const peakZone = zones.length > 0 ? Math.max(...zones) : 2
+  const typeBoost = workout?.type === 'interval'
+    ? 0.45
+    : workout?.type === 'terskel'
+      ? 0.3
+      : workout?.type === 'styrke'
+        ? 0.2
+        : 0
+
+  return Number((0.75 + peakZone * 0.35 + typeBoost).toFixed(2))
+}
+
+export function estimateWorkoutLoad(workout) {
+  const duration = estimateWorkoutDuration(workout)
+  const intensityFactor = getWorkoutIntensityFactor(workout)
+  return Math.round(duration * intensityFactor)
+}
+
+export function estimateMechanicalLoad(workout) {
+  const duration = estimateWorkoutDuration(workout)
+  const distance = getWorkoutDistance(workout) || 0
+  const zoneFactor = normalizeIntensityZone(workout?.type, workout?.intensityZone) || 2
+  const activityFactorMap = {
+    run: 1.15,
+    strength: 0.9,
+    bike: 0.55,
+    swim: 0.35,
+    xc_skiing: 0.75,
+  }
+  const activityFactor = activityFactorMap[workout?.activityTag] || 0.7
+
+  return Math.round(distance * 9 * activityFactor + duration * 0.18 * zoneFactor)
+}
+
+export function formatDurationLabel(minutes) {
+  if (!Number.isFinite(minutes) || minutes <= 0) return '0m'
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+    return remainingMinutes > 0 ? `${hours}t ${remainingMinutes}m` : `${hours}t`
+  }
+
+  return `${minutes}m`
+}
+
+export function isHardWorkout(workout) {
+  const topZone = normalizeIntensityZone(workout?.type, workout?.intensityZone) || 0
+  return workout?.type === 'interval' || workout?.type === 'terskel' || topZone >= 3
 }
 
 export function formatKmValue(value) {
@@ -183,6 +316,55 @@ export const TYPE_COLORS = {
   annet:    { bg: '#f3f4f6', border: '#9ca3af', text: '#374151' },
 }
 
+export const ACTIVITY_TAGS = [
+  { value: 'strength',  label: 'Styrke',      icon: 'strength', color: '#ec4899', bg: '#fce7f3' },
+  { value: 'run',       label: 'Løping',      icon: 'run', color: '#3b82f6', bg: '#dbeafe' },
+  { value: 'xc_skiing', label: 'Langrenn',    icon: 'xc_skiing', color: '#0ea5e9', bg: '#e0f2fe' },
+  { value: 'bike',      label: 'Sykkel',      icon: 'bike', color: '#10b981', bg: '#d1fae5' },
+  { value: 'swim',      label: 'Svømming',    icon: 'swim', color: '#6366f1', bg: '#e0e7ff' },
+]
+
+export const ACTIVITY_TAG_MAP = Object.fromEntries(
+  ACTIVITY_TAGS.map(tag => [tag.value, tag])
+)
+
+export function inferActivityTag(workout) {
+  const explicitTag = workout?.activityTag
+  if (explicitTag && ACTIVITY_TAG_MAP[explicitTag]) return explicitTag
+
+  const type = String(workout?.type || '').trim().toLowerCase()
+  if (type === 'styrke') return 'strength'
+  if (type === 'molle') return 'run'
+  if (type === 'interval' || type === 'terskel' || type === 'rolig') return 'run'
+
+  const text = [
+    workout?.title,
+    workout?.category,
+    workout?.description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  if (/sv[oø]m/.test(text)) return 'swim'
+  if (/sykkel|bike|spinn/.test(text)) return 'bike'
+  if (/langrenn|ski/.test(text)) return 'xc_skiing'
+  if (/styrke|kneb[oø]y|markl[oø]ft|benkpress/.test(text)) return 'strength'
+  if (/l[oø]p|jogg|intervall|terskel|m[oø]lle/.test(text)) return 'run'
+
+  return ''
+}
+
+export const LOAD_TAGS = [
+  { value: 'low', label: 'Lav load', shortLabel: 'Lav', color: '#166534', bg: '#dcfce7' },
+  { value: 'medium', label: 'Moderat load', shortLabel: 'Moderat', color: '#9a3412', bg: '#ffedd5' },
+  { value: 'high', label: 'Høy load', shortLabel: 'Høy', color: '#991b1b', bg: '#fee2e2' },
+]
+
+export const LOAD_TAG_MAP = Object.fromEntries(
+  LOAD_TAGS.map(tag => [tag.value, tag])
+)
+
 export const WORKOUT_TYPES = [
   { value: 'interval', label: 'Intervall' },
   { value: 'terskel', label: 'Terskel' },
@@ -193,12 +375,12 @@ export const WORKOUT_TYPES = [
 ]
 
 export const TYPE_ICONS = {
-  interval: '⚡',
-  terskel: '🎯',
-  rolig: '🚶',
-  styrke: '💪',
-  molle: '🏃',
-  annet: '📋',
+  interval: 'interval',
+  terskel: 'terskel',
+  rolig: 'rolig',
+  styrke: 'strength',
+  molle: 'molle',
+  annet: 'annet',
 }
 
 export const ZONE_INFO = {
@@ -251,6 +433,38 @@ export function normalizeIntensityZone(type, intensityZone) {
   return zones.length > 0 ? zones[zones.length - 1] : null
 }
 
+export function getDefaultWarmup(type, activityTag = '') {
+  if (type === 'styrke') return '10-15 min generell oppvarming + aktivering'
+  if (type === 'molle') return '10-15 min rolig oppvarming på mølle + mobilitet'
+  if (activityTag === 'run') return '10-15 min rolig jogg + 3-4 stigningsløp'
+  if (activityTag === 'bike') return '10-15 min rolig sykling med gradvis progresjon'
+  if (activityTag === 'swim') return '200-400 m rolig innsvømming + teknikk'
+  if (activityTag === 'xc_skiing') return '10-15 min rolig diagonalgang/skøyting + drill'
+  return '10-15 min rolig oppvarming'
+}
+
+export function getDefaultCooldown(type, activityTag = '') {
+  if (type === 'styrke') return '5-10 min rolig nedtrapping og lett mobilitet'
+  if (type === 'molle') return '5-10 min rolig nedjogg/gange og lett mobilitet'
+  if (activityTag === 'run') return '5-10 min rolig jogg eller gange'
+  if (activityTag === 'bike') return '10 min rolig sykling'
+  if (activityTag === 'swim') return '100-200 m rolig utsvømming'
+  if (activityTag === 'xc_skiing') return '5-10 min rolig nedkjøring'
+  return '5-10 min rolig nedkjøling'
+}
+
+export function getDefaultLoadTag(type, intensityZone) {
+  const peakZone = normalizeIntensityZone(type, intensityZone) || 0
+  if (type === 'interval' || peakZone >= 5) return 'high'
+  if (type === 'terskel' || type === 'styrke' || type === 'molle' || peakZone >= 3) return 'medium'
+  return 'low'
+}
+
+export function normalizeLoadTag(type, intensityZone, loadTag) {
+  if (LOAD_TAG_MAP[loadTag]) return loadTag
+  return getDefaultLoadTag(type, intensityZone)
+}
+
 export function formatIntensityZoneLabel(zones) {
   if (!zones || zones.length === 0) return null
   if (zones.length === 1) return `Sone ${zones[0]}`
@@ -263,11 +477,92 @@ export function formatIntensityZoneLabel(zones) {
 
 export function normalizeWorkout(workout) {
   const intensityZones = normalizeIntensityZones(workout.type, workout.intensityZone)
+  const activityTag = inferActivityTag(workout)
+  const weekday = workout.weekday || getWeekdayFromDate(workout.date)
+  const normalizedWeekday = normalizeWeekday(weekday)
+  const date = workout.date || getDateStringForWeekday(workout.week, workout.year, normalizedWeekday)
+  const formScore = Number.isFinite(Number(workout.formScore)) ? Number(workout.formScore) : null
+  const surplusScore = Number.isFinite(Number(workout.surplusScore)) ? Number(workout.surplusScore) : null
   return {
     ...workout,
+    activityTag,
+    date,
+    cooldown: workout.cooldown?.trim?.() || getDefaultCooldown(workout.type, activityTag),
+    formScore,
+    surplusScore,
+    time: workout.time || '',
+    loadTag: normalizeLoadTag(workout.type, intensityZones, workout.loadTag),
+    warmup: workout.warmup?.trim?.() || getDefaultWarmup(workout.type, activityTag),
+    weekday: normalizedWeekday,
     intensityZone: intensityZones,
     userComment: workout.userComment || '',
   }
+}
+
+export function formatWorkoutDate(dateValue) {
+  if (!dateValue) return ''
+  const [year, month, day] = String(dateValue).split('-').map(Number)
+  if (!year || !month || !day) return String(dateValue)
+  return `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}`
+}
+
+export function formatWorkoutSchedule(workout, options = {}) {
+  const {
+    includeWeekday = true,
+    includeDate = true,
+  } = options
+
+  const parts = []
+  const weekdayMeta = workout ? getWeekdayMeta(workout.weekday || getWeekdayFromDate(workout.date)) : null
+  const formattedDate = formatWorkoutDate(workout?.date)
+
+  if (includeWeekday && weekdayMeta) {
+    parts.push(weekdayMeta.label)
+  }
+
+  if (includeDate && formattedDate) {
+    parts.push(formattedDate)
+  }
+
+  const schedule = parts.join(' · ')
+
+  if (workout?.time) {
+    return schedule ? `${schedule} kl. ${workout.time}` : `Kl. ${workout.time}`
+  }
+
+  return schedule
+}
+
+export function formatWorkoutTime(workout) {
+  return workout?.time ? `Kl. ${workout.time}` : ''
+}
+
+export function compareWorkoutsBySchedule(a, b) {
+  const byWeekday = normalizeWeekday(a?.weekday || getWeekdayFromDate(a?.date))
+    - normalizeWeekday(b?.weekday || getWeekdayFromDate(b?.date))
+  if (byWeekday !== 0) return byWeekday
+
+  const aTime = a?.time || '99:99'
+  const bTime = b?.time || '99:99'
+  const byTime = aTime.localeCompare(bTime)
+  if (byTime !== 0) return byTime
+
+  return (a?.order ?? 0) - (b?.order ?? 0)
+}
+
+export function groupWorkoutsByWeekday(workouts) {
+  const grouped = WEEKDAY_OPTIONS.map(day => ({ ...day, workouts: [] }))
+
+  workouts.forEach(workout => {
+    const weekday = normalizeWeekday(workout.weekday || getWeekdayFromDate(workout.date))
+    grouped[weekday - 1].workouts.push(workout)
+  })
+
+  grouped.forEach(day => {
+    day.workouts.sort(compareWorkoutsBySchedule)
+  })
+
+  return grouped
 }
 
 export function getIntensityZoneLabel(workout) {

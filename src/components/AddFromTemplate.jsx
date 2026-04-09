@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import { WORKOUT_TYPES, getAllowedIntensityZones, hasIntensityZone, normalizeIntensityZones } from '../utils'
+import {
+  LOAD_TAGS,
+  WORKOUT_TYPES,
+  getAllowedIntensityZones,
+  getDefaultCooldown,
+  getDefaultLoadTag,
+  getDefaultWarmup,
+  hasIntensityZone,
+  normalizeIntensityZones,
+} from '../utils'
+import SystemIcon from './SystemIcon'
 
 export default function AddFromTemplate({ template, initialDate, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -9,11 +19,12 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
     description: template.description || '',
     distance: template.distance || '',
     sessionDetails: template.sessionDetails || '',
-    warmup: template.warmup || '',
-    cooldown: template.cooldown || '',
+    warmup: template.warmup || getDefaultWarmup(template.type, template.activityTag),
+    cooldown: template.cooldown || getDefaultCooldown(template.type, template.activityTag),
     exercises: template.exercises || '',
     rest: template.rest || '',
     notes: template.notes || '',
+    loadTag: template.loadTag || getDefaultLoadTag(template.type, template.intensityZone),
     intensityZone: normalizeIntensityZones(template.type, template.intensityZone),
   })
 
@@ -22,10 +33,14 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
   }
 
   function setType(type) {
+    const intensityZone = normalizeIntensityZones(type, form.intensityZone)
     setForm(f => ({
       ...f,
       type,
-      intensityZone: normalizeIntensityZones(type, f.intensityZone),
+      intensityZone,
+      loadTag: getDefaultLoadTag(type, intensityZone),
+      warmup: f.warmup || getDefaultWarmup(type),
+      cooldown: f.cooldown || getDefaultCooldown(type),
     }))
   }
 
@@ -53,7 +68,7 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
       <div className="modal add-modal">
-        <button className="modal-close" onClick={onClose}>✕</button>
+        <button className="modal-close" onClick={onClose}><SystemIcon name="close" className="system-icon" /></button>
         <h2 className="modal-title-h2">Legg til fra øktbank</h2>
 
         <form onSubmit={handleSubmit} className="add-form">
@@ -106,6 +121,15 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
           )}
 
           <label>
+            Load
+            <select value={form.loadTag} onChange={e => set('loadTag', e.target.value)}>
+              {LOAD_TAGS.map(tag => (
+                <option key={tag.value} value={tag.value}>{tag.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
             Beskrivelse / Økt
             <textarea
               value={form.description}
@@ -121,6 +145,7 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
                 type="text"
                 value={form.warmup}
                 onChange={e => set('warmup', e.target.value)}
+                required
               />
             </label>
           )}
@@ -132,6 +157,7 @@ export default function AddFromTemplate({ template, initialDate, onSave, onClose
                 type="text"
                 value={form.cooldown}
                 onChange={e => set('cooldown', e.target.value)}
+                required
               />
             </label>
           )}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SystemIcon from './SystemIcon'
 
 const ADMIN_PIN = '1234'
 
@@ -24,8 +25,8 @@ export default function AdminPin({ onSuccess, onClose }) {
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
       <div className="modal pin-modal">
-        <button className="modal-close" onClick={onClose}>✕</button>
-        <h2 className="modal-title-h2">🔒 Admin</h2>
+        <button className="modal-close" onClick={onClose}><SystemIcon name="close" className="system-icon" /></button>
+        <h2 className="modal-title-h2">Admin</h2>
         <p className="pin-hint">Skriv inn PIN-kode</p>
         <form onSubmit={handleSubmit} className="pin-form">
           <input
@@ -41,6 +42,7 @@ export default function AdminPin({ onSuccess, onClose }) {
           />
           {error && <div className="pin-error-msg">Feil PIN, prøv igjen</div>}
           <button type="submit" className="btn-save" style={{ marginTop: '1rem' }}>
+            <SystemIcon name="login" className="button-icon" />
             Logg inn
           </button>
         </form>

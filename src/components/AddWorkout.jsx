@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { WORKOUT_TYPES, getAllowedIntensityZones, getDefaultIntensityZones, hasIntensityZone, normalizeIntensityZones } from '../utils'
+import {
+  LOAD_TAGS,
+  WORKOUT_TYPES,
+  getAllowedIntensityZones,
+  getDefaultCooldown,
+  getDefaultIntensityZones,
+  getDefaultLoadTag,
+  getDefaultWarmup,
+  hasIntensityZone,
+  normalizeIntensityZones,
+} from '../utils'
+import SystemIcon from './SystemIcon'
 
 const DEFAULT_FORM = {
   date: new Date().toISOString().split('T')[0],
@@ -8,11 +19,12 @@ const DEFAULT_FORM = {
   description: '',
   distance: '',
   sessionDetails: '',
-  warmup: '',
-  cooldown: '',
+  warmup: getDefaultWarmup('interval'),
+  cooldown: getDefaultCooldown('interval'),
   exercises: '',
   rest: '',
   notes: '',
+  loadTag: getDefaultLoadTag('interval', getDefaultIntensityZones('interval')),
   intensityZone: getDefaultIntensityZones('interval'),
 }
 
@@ -27,10 +39,14 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
   }
 
   function setType(type) {
+    const intensityZone = normalizeIntensityZones(type, form.intensityZone)
     setForm(f => ({
       ...f,
       type,
-      intensityZone: normalizeIntensityZones(type, f.intensityZone),
+      intensityZone,
+      loadTag: getDefaultLoadTag(type, intensityZone),
+      warmup: f.warmup || getDefaultWarmup(type),
+      cooldown: f.cooldown || getDefaultCooldown(type),
     }))
   }
 
@@ -59,7 +75,7 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
       <div className="modal add-modal">
-        <button className="modal-close" onClick={onClose}>✕</button>
+        <button className="modal-close" onClick={onClose}><SystemIcon name="close" className="system-icon" /></button>
         <h2 className="modal-title-h2">Legg til økt</h2>
 
         <form onSubmit={handleSubmit} className="add-form">
@@ -113,6 +129,15 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
           )}
 
           <label>
+            Load
+            <select value={form.loadTag} onChange={e => set('loadTag', e.target.value)}>
+              {LOAD_TAGS.map(tag => (
+                <option key={tag.value} value={tag.value}>{tag.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
             Beskrivelse / Økt
             <textarea
               placeholder="F.eks. 4 x 1km @ 11.5 km/t, 5:15 pace, 2 min pause"
@@ -129,6 +154,7 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
               placeholder="F.eks. 2 km rolig"
               value={form.warmup}
               onChange={e => set('warmup', e.target.value)}
+              required
             />
           </label>
 
@@ -139,6 +165,7 @@ export default function AddWorkout({ onSave, onClose, initialDate }) {
               placeholder="F.eks. 1 km rolig"
               value={form.cooldown}
               onChange={e => set('cooldown', e.target.value)}
+              required
             />
           </label>
 
