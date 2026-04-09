@@ -309,14 +309,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
         if (!longest || workout.duration > longest.duration) return workout
         return longest
       }, null)
-      const workoutsWithForm = workouts.filter(workout => Number.isFinite(workout.formScore))
-      const workoutsWithSurplus = workouts.filter(workout => Number.isFinite(workout.surplusScore))
-      const averageFormScore = average(workoutsWithForm.map(workout => workout.formScore))
-      const averageSurplusScore = average(workoutsWithSurplus.map(workout => workout.surplusScore))
-      const readinessSubjectiveScore = average(
-        [averageFormScore, averageSurplusScore].filter(score => Number.isFinite(score) && score > 0)
-      )
-
       return {
         week,
         workouts,
@@ -335,9 +327,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
         dailyLoads,
         dailyDurations,
         longestSession,
-        averageFormScore,
-        averageSurplusScore,
-        readinessSubjectiveScore,
       }
     })
 
@@ -469,12 +458,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
     const consistencyScore = weeklyStatsWithSignals.length > 0
       ? Math.round((weeklyStatsWithSignals.filter(week => week.count >= 3).length / weeklyStatsWithSignals.length) * 100)
       : 0
-    const weeksWithSubjectiveData = weeklyStatsWithSignals.filter(
-      week => week.averageFormScore > 0 || week.averageSurplusScore > 0
-    )
-    const formTrendScore = average(weeksWithSubjectiveData.map(week => week.averageFormScore))
-    const surplusTrendScore = average(weeksWithSubjectiveData.map(week => week.averageSurplusScore))
-
     const topWorkouts = allWorkouts
       .slice()
       .sort((a, b) => b.load - a.load)
@@ -494,8 +477,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
       strain,
       density,
       consistencyScore,
-      formTrendScore,
-      surplusTrendScore,
       topWorkouts,
     }
   }, [visibleWeeks, workoutsByWeekKey, activeTagFilter, currentWeek, currentYear, primaryMetric])
@@ -514,8 +495,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
     strain,
     density,
     consistencyScore,
-    formTrendScore,
-    surplusTrendScore,
     topWorkouts,
   } = analysis
 
@@ -657,37 +636,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
       borderWidth: 0,
       hoverOffset: 10,
     }],
-  }
-
-  const subjectiveChartData = {
-    labels,
-    datasets: [
-      {
-        label: 'Form',
-        data: weeklyStats.map(week => Number(week.averageFormScore.toFixed(2))),
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.14)',
-        tension: 0.3,
-        pointRadius: 3,
-      },
-      {
-        label: 'Overskudd',
-        data: weeklyStats.map(week => Number(week.averageSurplusScore.toFixed(2))),
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.14)',
-        tension: 0.3,
-        pointRadius: 3,
-      },
-      {
-        label: 'Subjektiv race readiness',
-        data: weeklyStats.map(week => Number(week.readinessSubjectiveScore.toFixed(2))),
-        borderColor: '#7c3aed',
-        backgroundColor: '#7c3aed',
-        borderDash: [6, 6],
-        tension: 0.24,
-        pointRadius: 2,
-      },
-    ],
   }
 
   const performanceOptions = {
@@ -875,7 +823,7 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
           <h2 className="analysis-title">Analyse</h2>
           <p className="analysis-subtitle">
             {athleteName ? `${athleteName} · ` : ''}
-            Multi-aktivitet analyse med fokus pa volum, belastning, readiness, frekvens og soneprofil.
+            Multi-aktivitet analyse med fokus pa volum, belastning, frekvens og soneprofil.
           </p>
         </div>
 
@@ -1036,18 +984,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
               <strong className="summary-value">{consistencyScore}%</strong>
               <span className="summary-footnote">Andel uker med minst tre okter.</span>
             </article>
-
-            <article className="summary-card">
-              <span className="summary-label">Formsnitt</span>
-              <strong className="summary-value">{formatScore(formTrendScore)}</strong>
-              <span className="summary-footnote">Snitt av subjektiv form per okt i dette vinduet.</span>
-            </article>
-
-            <article className="summary-card">
-              <span className="summary-label">Overskuddssnitt</span>
-              <strong className="summary-value">{formatScore(surplusTrendScore)}</strong>
-              <span className="summary-footnote">Snitt av opplevd overskudd, nyttig inn mot konkurranse.</span>
-            </article>
           </div>
 
           <div className="analysis-insight-grid">
@@ -1082,9 +1018,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
                     Lengste okt {formatDurationLabel(focusWeek.longestSession.duration)}
                   </span>
                 ) : null}
-                <span className="analysis-chip neutral">
-                  Form {formatScore(focusWeek?.averageFormScore || 0)} / Overskudd {formatScore(focusWeek?.averageSurplusScore || 0)}
-                </span>
               </div>
             </article>
 
@@ -1165,18 +1098,6 @@ export default function AnalysisDashboard({ weeks, workoutsByWeekKey, athleteNam
               </div>
               <div className="chart-container xl">
                 <Line data={balanceChartData} options={balanceOptions} />
-              </div>
-            </div>
-
-            <div className="analysis-chart-card wide">
-              <div className="chart-card-header">
-                <div>
-                  <h3 className="chart-title">Form og overskudd</h3>
-                  <p className="chart-caption">Subjektive scorer per uke for a lese om utoveren faktisk blir skarpere inn mot konkuranser.</p>
-                </div>
-              </div>
-              <div className="chart-container xl">
-                <Line data={subjectiveChartData} options={subjectiveOptions} />
               </div>
             </div>
 

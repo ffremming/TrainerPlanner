@@ -116,24 +116,9 @@ export default function Login({ onClose, fullScreen }) {
     return (
       <div className="auth-screen">
         <div className="auth-screen-inner">
-          <div className="auth-hero">
-            <div className="login-header auth-brand">
-              <span className="login-icon">TP</span>
-              <div>
-                <span className="brand-eyebrow">Training Planner</span>
-                <h2 className="modal-title-h2">Tren smartere, uke for uke</h2>
-              </div>
-            </div>
-            <p className="auth-subtitle">
-              {isRegistering ? 'Opprett en konto for å komme i gang' : 'Logg inn for å se treningsplanen din'}
-            </p>
-            <div className="auth-feature-list">
-              <span className="auth-feature-pill">Ukeplan</span>
-              <span className="auth-feature-pill">Analyse</span>
-              <span className="auth-feature-pill">Coach flow</span>
-            </div>
+          <div className="auth-form-shell">
+            {form}
           </div>
-          {form}
         </div>
       </div>
     )

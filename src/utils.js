@@ -481,15 +481,11 @@ export function normalizeWorkout(workout) {
   const weekday = workout.weekday || getWeekdayFromDate(workout.date)
   const normalizedWeekday = normalizeWeekday(weekday)
   const date = workout.date || getDateStringForWeekday(workout.week, workout.year, normalizedWeekday)
-  const formScore = Number.isFinite(Number(workout.formScore)) ? Number(workout.formScore) : null
-  const surplusScore = Number.isFinite(Number(workout.surplusScore)) ? Number(workout.surplusScore) : null
   return {
     ...workout,
     activityTag,
     date,
     cooldown: workout.cooldown?.trim?.() || getDefaultCooldown(workout.type, activityTag),
-    formScore,
-    surplusScore,
     time: workout.time || '',
     loadTag: normalizeLoadTag(workout.type, intensityZones, workout.loadTag),
     warmup: workout.warmup?.trim?.() || getDefaultWarmup(workout.type, activityTag),

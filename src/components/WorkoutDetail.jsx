@@ -17,34 +17,17 @@ import IntensityScaleModal from './IntensityScaleModal'
 import ActivityIcon from './ActivityIcon'
 import SystemIcon from './SystemIcon'
 
-const SUBJECTIVE_SCORE_OPTIONS = [
-  { value: 1, label: '1', helper: 'Tom' },
-  { value: 2, label: '2', helper: 'Tung' },
-  { value: 3, label: '3', helper: 'Lav' },
-  { value: 4, label: '4', helper: 'Under pari' },
-  { value: 5, label: '5', helper: 'Noytral' },
-  { value: 6, label: '6', helper: 'Ok' },
-  { value: 7, label: '7', helper: 'Bra' },
-  { value: 8, label: '8', helper: 'Skarp' },
-  { value: 9, label: '9', helper: 'Veldig bra' },
-  { value: 10, label: '10', helper: 'Klar til race' },
-]
-
 export default function WorkoutDetail({ workout, onClose, canEdit, onDelete, onToggleComplete, onEdit, onSaveComment, onReplace }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(workout ? { ...workout } : {})
   const [showScale, setShowScale] = useState(false)
   const [commentDraft, setCommentDraft] = useState(workout?.userComment || '')
-  const [formScoreDraft, setFormScoreDraft] = useState(workout?.formScore ?? 5)
-  const [surplusScoreDraft, setSurplusScoreDraft] = useState(workout?.surplusScore ?? 5)
   const [commentSaving, setCommentSaving] = useState(false)
 
   useEffect(() => {
     if (!workout) return
     setForm({ ...workout })
     setCommentDraft(workout.userComment || '')
-    setFormScoreDraft(workout.formScore ?? 5)
-    setSurplusScoreDraft(workout.surplusScore ?? 5)
   }, [workout])
 
   if (!workout) return null
@@ -81,11 +64,7 @@ export default function WorkoutDetail({ workout, onClose, canEdit, onDelete, onT
     if (commentSaving) return
     setCommentSaving(true)
     try {
-      await onSaveComment(workout, {
-        userComment: commentDraft.trim(),
-        formScore: formScoreDraft,
-        surplusScore: surplusScoreDraft,
-      })
+      await onSaveComment(workout, commentDraft.trim())
     } finally {
       setCommentSaving(false)
     }
@@ -210,54 +189,11 @@ export default function WorkoutDetail({ workout, onClose, canEdit, onDelete, onT
 
         <div className="modal-section">
           <div className="section-label">Kommentar på økten</div>
-          <div className="subjective-score-grid">
-            <div className="subjective-score-panel">
-              <div className="subjective-score-header">
-                <strong>Form</strong>
-                <span>{formScoreDraft}/10</span>
-              </div>
-              <div className="subjective-score-options">
-                {SUBJECTIVE_SCORE_OPTIONS.map(option => (
-                  <button
-                    key={`form-${option.value}`}
-                    type="button"
-                    className={`subjective-score-btn${formScoreDraft === option.value ? ' active' : ''}`}
-                    onClick={() => setFormScoreDraft(option.value)}
-                  >
-                    <strong>{option.label}</strong>
-                    <span>{option.helper}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="subjective-score-copy">Hvordan kjentes kroppen i selve økten?</div>
-            </div>
-
-            <div className="subjective-score-panel">
-              <div className="subjective-score-header">
-                <strong>Overskudd</strong>
-                <span>{surplusScoreDraft}/10</span>
-              </div>
-              <div className="subjective-score-options">
-                {SUBJECTIVE_SCORE_OPTIONS.map(option => (
-                  <button
-                    key={`surplus-${option.value}`}
-                    type="button"
-                    className={`subjective-score-btn${surplusScoreDraft === option.value ? ' active' : ''}`}
-                    onClick={() => setSurplusScoreDraft(option.value)}
-                  >
-                    <strong>{option.label}</strong>
-                    <span>{option.helper}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="subjective-score-copy">Hvor mye mental og fysisk friskhet hadde du?</div>
-            </div>
-          </div>
           <textarea
             className="workout-comment-input"
             value={commentDraft}
             onChange={e => setCommentDraft(e.target.value)}
-            placeholder="Skriv hvordan økten gikk, dagsform, justeringer eller annet du vil følge opp."
+            placeholder="Skriv hvordan økten gikk, justeringer eller annet du vil følge opp."
             rows={4}
           />
           <div className="comment-actions">
@@ -266,11 +202,7 @@ export default function WorkoutDetail({ workout, onClose, canEdit, onDelete, onT
               onClick={handleSaveComment}
               disabled={
                 commentSaving
-                || (
-                  commentDraft.trim() === (workout.userComment || '').trim()
-                  && formScoreDraft === (workout.formScore ?? 5)
-                  && surplusScoreDraft === (workout.surplusScore ?? 5)
-                )
+                || commentDraft.trim() === (workout.userComment || '').trim()
               }
             >
               {commentSaving ? 'Lagrer...' : 'Lagre kommentar'}

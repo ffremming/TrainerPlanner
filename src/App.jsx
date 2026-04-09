@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import {
   collection, query, where, onSnapshot,
-  updateDoc, deleteDoc, doc, serverTimestamp
+  updateDoc, deleteDoc, doc, serverTimestamp, deleteField
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 import {
@@ -85,7 +85,12 @@ export default function App() {
   const workoutLayout = userProfile?.workoutLayout === 'calendar' ? 'calendar' : 'list'
   const selectedAthleteProfile = athletes.find(athlete => athlete.uid === selectedAthleteId) || null
   const adminWorkoutLayout = selectedAthleteProfile?.workoutLayout === 'calendar' ? 'calendar' : 'list'
-  const activeHomeAthlete = selectedAthleteProfile || (selectedAthleteId === userProfile?.uid ? userProfile : null)
+  const viewedAthleteId = canManageWorkouts
+    ? (selectedAthleteId || userProfile?.uid || user?.uid)
+    : (userProfile?.uid || user?.uid)
+  const activeHomeAthlete = canManageWorkouts
+    ? (selectedAthleteProfile || (selectedAthleteId === userProfile?.uid ? userProfile : null))
+    : userProfile
   const homeWorkoutLayout = canManageWorkouts ? adminWorkoutLayout : workoutLayout
 
   // ─── Auth state ───
@@ -172,20 +177,13 @@ export default function App() {
       return unsub
     }
 
-    if (isAthlete) {
-      setSelectedAthleteId(userProfile.uid)
-      setAthletes([userProfile])
-      return
-    }
+    setAthletes([])
+    setSelectedAthleteId(userProfile.uid)
   }, [userProfile, isAthlete, isCoach, isSuperadmin])
-
-  const homeAthleteId = canManageWorkouts
-    ? (selectedAthleteId || userProfile?.uid || user?.uid)
-    : (userProfile?.uid || user?.uid)
 
   // ─── Home workouts listener (always scoped to current user) ───
   useEffect(() => {
-    if (!homeAthleteId) {
+    if (!viewedAthleteId) {
       setWorkouts([])
       setLoading(false)
       return
@@ -194,23 +192,24 @@ export default function App() {
     setLoading(true)
     const q = query(
       collection(db, 'workouts'),
-      where('athleteId', '==', homeAthleteId),
+      where('athleteId', '==', viewedAthleteId),
       where('year', '==', currentYear),
       where('week', '==', currentWeek)
     )
     const unsub = onSnapshot(q, snap => {
       const docs = snap.docs
         .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
+        .filter(workout => canManageWorkouts || workout.athleteId === (userProfile?.uid || user?.uid))
         .sort(compareWorkoutsBySchedule)
       setWorkouts(docs)
       setLoading(false)
     })
     return unsub
-  }, [currentWeek, currentYear, homeAthleteId])
+  }, [canManageWorkouts, currentWeek, currentYear, user?.uid, userProfile?.uid, viewedAthleteId])
 
   // ─── Home overview workouts listener (always scoped to current user) ───
   useEffect(() => {
-    if (!homeAthleteId) {
+    if (!viewedAthleteId) {
       setOverviewWorkouts([])
       setOverviewLoading(false)
       return
@@ -226,7 +225,7 @@ export default function App() {
     const unsubscribers = years.map(year => onSnapshot(
       query(
         collection(db, 'workouts'),
-        where('athleteId', '==', homeAthleteId),
+        where('athleteId', '==', viewedAthleteId),
         where('year', '==', year)
       ),
       snap => {
@@ -238,6 +237,7 @@ export default function App() {
 
         snap.docs.forEach(docSnap => {
           const normalized = normalizeWorkout({ id: docSnap.id, ...docSnap.data() })
+          if (!canManageWorkouts && normalized.athleteId !== (userProfile?.uid || user?.uid)) return
           const key = getWeekKey(normalized.week, normalized.year)
           if (overviewWeekKeys.has(key)) {
             workoutMap.set(normalized.id, normalized)
@@ -259,7 +259,7 @@ export default function App() {
     ))
 
     return () => unsubscribers.forEach(unsub => unsub())
-  }, [currentWeek, currentYear, homeAthleteId])
+  }, [canManageWorkouts, currentWeek, currentYear, overviewWeekKeys, user?.uid, userProfile?.uid, viewedAthleteId])
 
   useEffect(() => {
     if (!selectedWorkout) return
@@ -333,17 +333,20 @@ export default function App() {
 
   async function handleSaveComment(workout, payload) {
     const userComment = typeof payload === 'string' ? payload : payload.userComment
-    const formScore = typeof payload === 'string' ? (workout.formScore ?? null) : payload.formScore
-    const surplusScore = typeof payload === 'string' ? (workout.surplusScore ?? null) : payload.surplusScore
 
     await updateDoc(doc(db, 'workouts', workout.id), {
       userComment,
-      formScore,
-      surplusScore,
+      formScore: deleteField(),
+      surplusScore: deleteField(),
       userCommentUpdatedAt: serverTimestamp(),
     })
     if (selectedWorkout?.id === workout.id) {
-      setSelectedWorkout(prev => ({ ...prev, userComment, formScore, surplusScore }))
+      setSelectedWorkout(prev => ({
+        ...prev,
+        userComment,
+        formScore: null,
+        surplusScore: null,
+      }))
     }
   }
 

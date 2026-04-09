@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   collection, query, where, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch
+  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, deleteField
 } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '../firebase'
@@ -468,17 +468,20 @@ export default function AdminDashboard({
 
   async function handleSaveComment(workout, payload) {
     const userComment = typeof payload === 'string' ? payload : payload.userComment
-    const formScore = typeof payload === 'string' ? (workout.formScore ?? null) : payload.formScore
-    const surplusScore = typeof payload === 'string' ? (workout.surplusScore ?? null) : payload.surplusScore
 
     await updateDoc(doc(db, 'workouts', workout.id), {
       userComment,
-      formScore,
-      surplusScore,
+      formScore: deleteField(),
+      surplusScore: deleteField(),
       userCommentUpdatedAt: serverTimestamp(),
     })
     if (selectedWorkout?.id === workout.id) {
-      setSelectedWorkout(prev => ({ ...prev, userComment, formScore, surplusScore }))
+      setSelectedWorkout(prev => ({
+        ...prev,
+        userComment,
+        formScore: null,
+        surplusScore: null,
+      }))
     }
   }
 
@@ -664,33 +667,6 @@ export default function AdminDashboard({
   // Get selected athlete name for display
   const selectedAthleteName = athletes.find(a => a.uid === selectedAthleteId)?.displayName
     || (selectedAthleteId === userProfile?.uid ? userProfile?.displayName : null)
-
-  // ─── Render: Template editor modal ───
-  if (editingTemplate !== null) {
-    return (
-      <div className="admin-dashboard">
-        <header className="admin-header">
-          <button className="admin-back-btn" onClick={() => setEditingTemplate(null)}>‹ Avbryt</button>
-          <div className="admin-header-copy">
-            <span className="brand-eyebrow">Template Editor</span>
-            <span className="admin-header-title">
-              {editingTemplate === 'new' ? 'Ny mal' : 'Rediger mal'}
-            </span>
-          </div>
-          <div style={{ width: 72 }} />
-        </header>
-        <div className="admin-scroll-area">
-          <form onSubmit={handleSaveTemplate} style={{ padding: '1rem' }}>
-            <WorkoutForm value={templateForm} onChange={setTemplateForm} showCategory />
-            <div className="form-actions" style={{ marginTop: '1rem' }}>
-              <button type="button" className="btn-cancel" onClick={() => setEditingTemplate(null)}>Avbryt</button>
-              <button type="submit" className="btn-save">Lagre mal</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )
-  }
 
   // ─── Render: Custom workout form modal ───
   if (showCustomForm) {
@@ -1122,6 +1098,7 @@ export default function AdminDashboard({
           monday={monday}
           sunday={sunday}
           isThisWeek={isThisWeek}
+          workoutLayout={workoutLayout}
           selectedAthleteName={selectedAthleteName}
           workouts={workouts}
           loadingWorkouts={loadingWorkouts}
@@ -1140,6 +1117,7 @@ export default function AdminDashboard({
           onMoveWorkout={moveWorkout}
           onMoveWorkoutByDrag={moveWorkoutByDrag}
           onAddTemplateToDay={handleAddTemplateToDay}
+          onEditTemplate={startEditTemplate}
         />
       )}
 
@@ -1216,6 +1194,28 @@ export default function AdminDashboard({
           onSaveComment={handleSaveComment}
           onEdit={handleEditWorkout}
         />
+      )}
+
+      {editingTemplate !== null && (
+        <div className="modal-backdrop" onClick={event => {
+          if (event.target === event.currentTarget) {
+            setEditingTemplate(null)
+          }
+        }}>
+          <div className="modal add-modal">
+            <button className="modal-close" onClick={() => setEditingTemplate(null)}>
+              <SystemIcon name="close" className="system-icon" />
+            </button>
+            <h2 className="modal-title-h2">{editingTemplate === 'new' ? 'Ny mal' : 'Rediger mal'}</h2>
+            <form onSubmit={handleSaveTemplate}>
+              <WorkoutForm value={templateForm} onChange={setTemplateForm} showCategory />
+              <div className="form-actions" style={{ marginTop: '1rem' }}>
+                <button type="button" className="btn-cancel" onClick={() => setEditingTemplate(null)}>Avbryt</button>
+                <button type="submit" className="btn-save">Lagre mal</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )
