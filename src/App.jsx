@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { onAuthStateChanged } from 'firebase/auth'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
 import {
   collection, query, where, onSnapshot,
   updateDoc, deleteDoc, doc, serverTimestamp
@@ -313,6 +313,14 @@ export default function App() {
     setCurrentYear(year)
   }
 
+  async function handleLogout() {
+    await signOut(auth)
+    setShowAdmin(false)
+    setShowUserManagement(false)
+    setSelectedWorkout(null)
+    setReplacementTarget(null)
+  }
+
   async function handleToggleComplete(workout) {
     await updateDoc(doc(db, 'workouts', workout.id), {
       completed: !workout.completed,
@@ -483,6 +491,9 @@ export default function App() {
                 <SystemIcon name="settings" className="system-icon" />
               </button>
             )}
+            <button className="admin-btn" onClick={handleLogout} title="Logg ut" aria-label="Logg ut">
+              Logg ut
+            </button>
           </div>
         </div>
 
