@@ -88,6 +88,18 @@ export function getWeekKey(week, year) {
   return `${year}-${String(week).padStart(2, '0')}`
 }
 
+export function chunkArray(items, size) {
+  if (!Array.isArray(items) || items.length === 0) return []
+  const chunkSize = Math.max(1, Number(size) || 1)
+  const chunks = []
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize))
+  }
+
+  return chunks
+}
+
 export const WEEKDAY_OPTIONS = [
   { value: 1, label: 'Mandag', shortLabel: 'Man' },
   { value: 2, label: 'Tirsdag', shortLabel: 'Tir' },

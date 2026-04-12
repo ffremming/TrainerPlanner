@@ -5,6 +5,15 @@ import {
 import { db } from './firebase'
 import { getPrimaryRole } from './roles'
 
+function normalizeUserDoc(snapshot) {
+  const data = snapshot.data()
+  return {
+    id: snapshot.id,
+    uid: data.uid || snapshot.id,
+    ...data,
+  }
+}
+
 // ─── User Profiles ────────────────────────────────────────────────────────
 
 export async function createUserProfile(uid, email, displayName, role = 'athlete') {
@@ -22,12 +31,12 @@ export async function createUserProfile(uid, email, displayName, role = 'athlete
 
 export async function getUserProfile(uid) {
   const snap = await getDoc(doc(db, 'users', uid))
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null
+  return snap.exists() ? normalizeUserDoc(snap) : null
 }
 
 export function onUserProfileSnapshot(uid, callback) {
   return onSnapshot(doc(db, 'users', uid), snap => {
-    callback(snap.exists() ? { id: snap.id, ...snap.data() } : null)
+    callback(snap.exists() ? normalizeUserDoc(snap) : null)
   })
 }
 
@@ -45,19 +54,19 @@ export async function updateUserProfile(uid, fields) {
 
 export async function getAllUsers() {
   const snap = await getDocs(collection(db, 'users'))
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs.map(normalizeUserDoc)
 }
 
 export async function getAllAthletes() {
   const snap = await getDocs(collection(db, 'users'))
   return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
+    .map(normalizeUserDoc)
     .filter(user => Array.isArray(user.roles) ? user.roles.includes('athlete') : user.role === 'athlete')
 }
 
 export function onAllUsersSnapshot(callback) {
   return onSnapshot(collection(db, 'users'), snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    callback(snap.docs.map(normalizeUserDoc))
   })
 }
 
@@ -85,43 +94,58 @@ export async function getCoachAthletes(coachId) {
   const relSnap = await getDocs(
     query(collection(db, 'relationships'), where('coachId', '==', coachId))
   )
-  const athleteIds = relSnap.docs.map(d => d.data().athleteId)
-  if (athleteIds.length === 0) return []
+  const athleteIds = new Set(relSnap.docs.map(d => d.data().athleteId))
+  if (athleteIds.size === 0) return []
 
-  const athletes = await Promise.all(
-    athleteIds.map(id => getUserProfile(id))
-  )
-  return athletes.filter(Boolean)
+  const userSnap = await getDocs(collection(db, 'users'))
+  return userSnap.docs
+    .map(normalizeUserDoc)
+    .filter(user => athleteIds.has(user.uid))
 }
 
 export function onCoachAthletesSnapshot(coachId, callback) {
-  return onSnapshot(
+  let athleteIds = new Set()
+  let allUsers = []
+  let hasRelationshipsSnapshot = false
+  let hasUsersSnapshot = false
+
+  const publish = () => {
+    if (!hasRelationshipsSnapshot || !hasUsersSnapshot) return
+    callback(allUsers.filter(user => athleteIds.has(user.uid)))
+  }
+
+  const unsubRelationships = onSnapshot(
     query(collection(db, 'relationships'), where('coachId', '==', coachId)),
-    async snap => {
-      const athleteIds = snap.docs.map(d => d.data().athleteId)
-      if (athleteIds.length === 0) {
-        callback([])
-        return
-      }
-      const athletes = await Promise.all(
-        athleteIds.map(id => getUserProfile(id))
-      )
-      callback(athletes.filter(Boolean))
+    snap => {
+      athleteIds = new Set(snap.docs.map(d => d.data().athleteId))
+      hasRelationshipsSnapshot = true
+      publish()
     }
   )
+
+  const unsubUsers = onSnapshot(collection(db, 'users'), snap => {
+    allUsers = snap.docs.map(normalizeUserDoc)
+    hasUsersSnapshot = true
+    publish()
+  })
+
+  return () => {
+    unsubRelationships()
+    unsubUsers()
+  }
 }
 
 export async function getAthleteCoaches(athleteId) {
   const relSnap = await getDocs(
     query(collection(db, 'relationships'), where('athleteId', '==', athleteId))
   )
-  const coachIds = relSnap.docs.map(d => d.data().coachId)
-  if (coachIds.length === 0) return []
+  const coachIds = new Set(relSnap.docs.map(d => d.data().coachId))
+  if (coachIds.size === 0) return []
 
-  const coaches = await Promise.all(
-    coachIds.map(id => getUserProfile(id))
-  )
-  return coaches.filter(Boolean)
+  const userSnap = await getDocs(collection(db, 'users'))
+  return userSnap.docs
+    .map(normalizeUserDoc)
+    .filter(user => coachIds.has(user.uid))
 }
 
 export function onRelationshipsSnapshot(callback) {

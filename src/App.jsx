@@ -27,6 +27,7 @@ import {
   normalizeWorkout,
 } from './utils'
 import { mergeTemplates } from './templateLibrary'
+import { subscribeToWorkoutWeeks } from './workoutSubscriptions'
 import {
   getUserProfile,
   createUserProfile,
@@ -196,14 +197,21 @@ export default function App() {
       where('year', '==', currentYear),
       where('week', '==', currentWeek)
     )
-    const unsub = onSnapshot(q, snap => {
-      const docs = snap.docs
-        .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
-        .filter(workout => canManageWorkouts || workout.athleteId === (userProfile?.uid || user?.uid))
-        .sort(compareWorkoutsBySchedule)
-      setWorkouts(docs)
-      setLoading(false)
-    })
+    const unsub = onSnapshot(
+      q,
+      snap => {
+        const docs = snap.docs
+          .map(d => normalizeWorkout({ id: d.id, ...d.data() }))
+          .filter(workout => canManageWorkouts || workout.athleteId === (userProfile?.uid || user?.uid))
+          .sort(compareWorkoutsBySchedule)
+        setWorkouts(docs)
+        setLoading(false)
+      },
+      () => {
+        setWorkouts([])
+        setLoading(false)
+      }
+    )
     return unsub
   }, [canManageWorkouts, currentWeek, currentYear, user?.uid, userProfile?.uid, viewedAthleteId])
 
@@ -218,47 +226,23 @@ export default function App() {
     setOverviewLoading(true)
     setOverviewWorkouts([])
 
-    const years = [...new Set(overviewWeeks.map(week => week.year))]
-    const workoutMap = new Map()
-    const loadedYears = new Set()
-
-    const unsubscribers = years.map(year => onSnapshot(
-      query(
-        collection(db, 'workouts'),
-        where('athleteId', '==', viewedAthleteId),
-        where('year', '==', year)
+    return subscribeToWorkoutWeeks({
+      athleteId: viewedAthleteId,
+      weeks: overviewWeeks,
+      filterWorkout: workout => (
+        overviewWeekKeys.has(getWeekKey(workout.week, workout.year))
+        && (canManageWorkouts || workout.athleteId === (userProfile?.uid || user?.uid))
       ),
-      snap => {
-        for (const [id, workout] of [...workoutMap.entries()]) {
-          if (workout.year === year) {
-            workoutMap.delete(id)
-          }
-        }
-
-        snap.docs.forEach(docSnap => {
-          const normalized = normalizeWorkout({ id: docSnap.id, ...docSnap.data() })
-          if (!canManageWorkouts && normalized.athleteId !== (userProfile?.uid || user?.uid)) return
-          const key = getWeekKey(normalized.week, normalized.year)
-          if (overviewWeekKeys.has(key)) {
-            workoutMap.set(normalized.id, normalized)
-          }
-        })
-
-        loadedYears.add(year)
-        setOverviewWorkouts(
-          [...workoutMap.values()].sort((a, b) => {
-            if (a.year !== b.year) return a.year - b.year
-            if (a.week !== b.week) return a.week - b.week
-            return compareWorkoutsBySchedule(a, b)
-          })
-        )
-        if (loadedYears.size >= years.length) {
+      onData: (nextWorkouts, isReady) => {
+        setOverviewWorkouts(nextWorkouts)
+        if (isReady) {
           setOverviewLoading(false)
         }
-      }
-    ))
-
-    return () => unsubscribers.forEach(unsub => unsub())
+      },
+      onError: () => {
+        setOverviewLoading(false)
+      },
+    })
   }, [canManageWorkouts, currentWeek, currentYear, overviewWeekKeys, user?.uid, userProfile?.uid, viewedAthleteId])
 
   useEffect(() => {
