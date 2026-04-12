@@ -60,6 +60,7 @@ export default function App() {
   const [user, setUser] = useState(undefined)
   const [userProfile, setUserProfile] = useState(null)
   const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState('')
 
   const [showLogin, setShowLogin] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
@@ -104,31 +105,43 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setUserProfile(null)
+      setProfileError('')
       setProfileLoading(false)
       return
     }
 
     setProfileLoading(true)
+    setProfileError('')
     let cancelled = false
 
     async function initProfile() {
-      const existing = await getUserProfile(user.uid)
-      if (cancelled) return
+      try {
+        const existing = await getUserProfile(user.uid)
+        if (cancelled) return
 
-      if (!existing) {
-        // First user with no profile becomes superadmin
-        await createUserProfile(user.uid, user.email, user.email.split('@')[0], 'superadmin')
-      }
+        if (!existing) {
+          const fallbackName = user.email?.split('@')[0] || 'bruker'
+          await createUserProfile(user.uid, user.email || '', fallbackName, 'superadmin')
+        }
 
-      // Start real-time listener
-      const unsub = onUserProfileSnapshot(user.uid, profile => {
+        // Start real-time listener
+        const unsub = onUserProfileSnapshot(user.uid, profile => {
+          if (!cancelled) {
+            setUserProfile(profile)
+            setProfileLoading(false)
+          }
+        })
+
+        return unsub
+      } catch (error) {
+        console.error('Failed to initialize user profile', error)
         if (!cancelled) {
-          setUserProfile(profile)
+          setUserProfile(null)
+          setProfileError('Kunne ikke laste brukerprofilen. Prøv å laste siden på nytt.')
           setProfileLoading(false)
         }
-      })
-
-      return unsub
+        return null
+      }
     }
 
     let unsubProfile = null
@@ -414,6 +427,25 @@ export default function App() {
     return (
       <div className="app">
         <Login fullScreen onClose={() => {}} />
+      </div>
+    )
+  }
+
+  if (profileError) {
+    return (
+      <div className="app">
+        <div className="auth-screen">
+          <div className="auth-screen-inner">
+            <div className="login-header">
+              <span className="login-icon">TP</span>
+              <h2 className="modal-title-h2">Treningsplan</h2>
+            </div>
+            <div className="empty-state">{profileError}</div>
+            <button className="admin-btn" onClick={handleLogout}>
+              Logg ut
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
