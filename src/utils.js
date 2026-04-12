@@ -194,6 +194,7 @@ export function estimateWorkoutDuration(workout) {
   if (workout?.activityTag === 'bike') return Math.round(distance * 2.7)
   if (workout?.activityTag === 'swim') return Math.round(distance * 20)
   if (workout?.activityTag === 'xc_skiing') return Math.round(distance * 4.8)
+  if (workout?.activityTag === 'walking') return Math.round(distance * 12)
   return Math.round(distance * 6)
 }
 
@@ -227,6 +228,7 @@ export function estimateMechanicalLoad(workout) {
     bike: 0.55,
     swim: 0.35,
     xc_skiing: 0.75,
+    walking: 0.5,
   }
   const activityFactor = activityFactorMap[workout?.activityTag] || 0.7
 
@@ -331,6 +333,7 @@ export const TYPE_COLORS = {
 export const ACTIVITY_TAGS = [
   { value: 'strength',  label: 'Styrke',      icon: 'strength', color: '#ec4899', bg: '#fce7f3' },
   { value: 'run',       label: 'Løping',      icon: 'run', color: '#3b82f6', bg: '#dbeafe' },
+  { value: 'walking',   label: 'Gåing',       icon: 'walking', color: '#f59e0b', bg: '#fef3c7' },
   { value: 'xc_skiing', label: 'Langrenn',    icon: 'xc_skiing', color: '#0ea5e9', bg: '#e0f2fe' },
   { value: 'bike',      label: 'Sykkel',      icon: 'bike', color: '#10b981', bg: '#d1fae5' },
   { value: 'swim',      label: 'Svømming',    icon: 'swim', color: '#6366f1', bg: '#e0e7ff' },
@@ -361,6 +364,7 @@ export function inferActivityTag(workout) {
   if (/sv[oø]m/.test(text)) return 'swim'
   if (/sykkel|bike|spinn/.test(text)) return 'bike'
   if (/langrenn|ski/.test(text)) return 'xc_skiing'
+  if (/g[åa]ing|g[åa]|tur|walk|walking/.test(text)) return 'walking'
   if (/styrke|kneb[oø]y|markl[oø]ft|benkpress/.test(text)) return 'strength'
   if (/l[oø]p|jogg|intervall|terskel|m[oø]lle/.test(text)) return 'run'
 
@@ -449,6 +453,7 @@ export function getDefaultWarmup(type, activityTag = '') {
   if (type === 'styrke') return '10-15 min generell oppvarming + aktivering'
   if (type === 'molle') return '10-15 min rolig oppvarming på mølle + mobilitet'
   if (activityTag === 'run') return '10-15 min rolig jogg + 3-4 stigningsløp'
+  if (activityTag === 'walking') return '10-15 min rolig gange med gradvis progresjon'
   if (activityTag === 'bike') return '10-15 min rolig sykling med gradvis progresjon'
   if (activityTag === 'swim') return '200-400 m rolig innsvømming + teknikk'
   if (activityTag === 'xc_skiing') return '10-15 min rolig diagonalgang/skøyting + drill'
@@ -459,6 +464,7 @@ export function getDefaultCooldown(type, activityTag = '') {
   if (type === 'styrke') return '5-10 min rolig nedtrapping og lett mobilitet'
   if (type === 'molle') return '5-10 min rolig nedjogg/gange og lett mobilitet'
   if (activityTag === 'run') return '5-10 min rolig jogg eller gange'
+  if (activityTag === 'walking') return '5-10 min rolig gange og lett mobilitet'
   if (activityTag === 'bike') return '10 min rolig sykling'
   if (activityTag === 'swim') return '100-200 m rolig utsvømming'
   if (activityTag === 'xc_skiing') return '5-10 min rolig nedkjøring'

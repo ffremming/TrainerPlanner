@@ -3,6 +3,7 @@ import {
   Bike,
   ClipboardList,
   Dumbbell,
+  Footprints,
   Gauge,
   PersonStanding,
   Waves,
@@ -10,6 +11,7 @@ import {
 
 const ICONS = {
   run: PersonStanding,
+  walking: Footprints,
   strength: Dumbbell,
   xc_skiing: Gauge,
   bike: Bike,

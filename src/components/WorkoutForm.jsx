@@ -214,7 +214,6 @@ export default function WorkoutForm({ value, onChange, showCategory = false, sho
           placeholder="F.eks. 2 km rolig"
           value={value.warmup || getDefaultWarmup(value.type, value.activityTag)}
           onChange={e => set('warmup', e.target.value)}
-          required
         />
       </label>
 
@@ -225,7 +224,6 @@ export default function WorkoutForm({ value, onChange, showCategory = false, sho
           placeholder="F.eks. 1 km rolig"
           value={value.cooldown || getDefaultCooldown(value.type, value.activityTag)}
           onChange={e => set('cooldown', e.target.value)}
-          required
         />
       </label>
 

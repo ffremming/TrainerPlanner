@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import {
   collection, query, where, onSnapshot,
@@ -75,8 +75,14 @@ export default function App() {
   const [athletes, setAthletes] = useState([])
   const [selectedAthleteId, setSelectedAthleteId] = useState(null)
 
-  const overviewWeeks = getWeekWindow(currentWeek, currentYear, 4, 4)
-  const overviewWeekKeys = new Set(overviewWeeks.map(week => week.key))
+  const overviewWeeks = useMemo(
+    () => getWeekWindow(currentWeek, currentYear, 4, 4),
+    [currentWeek, currentYear]
+  )
+  const overviewWeekKeys = useMemo(
+    () => new Set(overviewWeeks.map(week => week.key)),
+    [overviewWeeks]
+  )
   const selectedWeekKey = getWeekKey(currentWeek, currentYear)
 
   // Role flags
