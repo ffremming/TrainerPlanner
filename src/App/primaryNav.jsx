@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Plus, Share2 } from 'lucide-react'
 import SystemIcon from '../components/SystemIcon'
 import { Button } from '../components/ui'
+import { createDraftPlan, createPlanInvite } from '../userService'
 
 /* ────────────────────────────────────────────────────────────────────
  * Primary nav — single source of truth for the sidebar.
@@ -20,14 +21,20 @@ function initialOf(p) {
   return ((p?.displayName || p?.email || '?').trim()[0] || '?').toUpperCase()
 }
 
+function planLabel(a, userProfile) {
+  if (a.uid === userProfile?.uid) return `${a.displayName || a.email} (me)`
+  return a.planName || a.displayName || a.email || 'No name'
+}
+
 function SidebarAthlete({
   athletes,
   selectedAthleteId,
   setSelectedAthleteId,
+  selectPlan,
   userProfile,
-  isSuperadmin,
 }) {
   const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
   const ref = useRef(null)
 
   // Close on outside click + Escape
@@ -47,18 +54,53 @@ function SidebarAthlete({
     }
   }, [open])
 
-  // Self-include — coaches can plan for themselves; superadmins also see their
-  // own profile as a valid context.
-  const includeSelf = isSuperadmin || athletes.some(a => a.uid === userProfile?.uid)
+  // Always offer the user's own context first, then every plan/athlete they
+  // coach. A plain athlete sees just themselves until they create a plan.
   const visibleAthletes = useMemo(() => {
     const list = athletes.filter(a => a.uid !== userProfile?.uid)
-    return includeSelf && userProfile ? [userProfile, ...list] : list
-  }, [athletes, userProfile, includeSelf])
+    return userProfile ? [userProfile, ...list] : list
+  }, [athletes, userProfile])
 
   const selected = visibleAthletes.find(a => a.uid === selectedAthleteId) || null
-  const displayName = selected
-    ? (selected.uid === userProfile?.uid ? `${selected.displayName} (me)` : selected.displayName)
-    : 'Select athlete'
+  const displayName = selected ? planLabel(selected, userProfile) : 'Select plan'
+
+  async function handleNewPlan() {
+    const name = window.prompt('Name this plan (e.g. "Marathon block", "Anna 5k")')
+    if (name === null) return
+    setBusy(true)
+    try {
+      const draftId = await createDraftPlan(userProfile, name)
+      selectPlan(draftId)
+      setOpen(false)
+    } catch (err) {
+      console.error('Could not create plan', err)
+      const detail = err?.code === 'permission-denied'
+        ? ' (permission denied — the latest Firestore rules may not be deployed yet)'
+        : err?.message ? ` (${err.message})` : ''
+      window.alert(`Could not create the plan. Please try again.${detail}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleShare(athlete, e) {
+    e.stopPropagation()
+    setBusy(true)
+    try {
+      const link = await createPlanInvite(userProfile, athlete)
+      try {
+        await navigator.clipboard?.writeText(link)
+        window.alert(`Share link copied to clipboard:\n\n${link}\n\nSend it to whoever should get this plan. They register and the plan is added to their account.`)
+      } catch {
+        window.prompt('Copy this share link:', link)
+      }
+    } catch (err) {
+      console.error('Could not create share link', err)
+      window.alert('Could not create a share link. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="th-sb-athlete" ref={ref}>
@@ -73,7 +115,7 @@ function SidebarAthlete({
           {initialOf(selected)}
         </span>
         <span className="th-sb-athlete-meta">
-          <span className="th-sb-athlete-eyebrow">Selected athlete</span>
+          <span className="th-sb-athlete-eyebrow">Selected plan</span>
           <span className="th-sb-athlete-name">{displayName}</span>
         </span>
         <ChevronRight
@@ -84,17 +126,16 @@ function SidebarAthlete({
       </button>
 
       {open && (
-        <div className="th-sb-athlete-popover" role="listbox" aria-label="Switch athlete">
+        <div className="th-sb-athlete-popover" role="listbox" aria-label="Switch plan">
           <div className="th-sb-athlete-popover-head">
-            <span className="th-sb-athlete-eyebrow">Athletes</span>
+            <span className="th-sb-athlete-eyebrow">Plans &amp; athletes</span>
           </div>
           <ul className="th-sb-athlete-popover-list">
             {visibleAthletes.length === 0 && (
-              <li className="th-sb-athlete-popover-empty">No athletes</li>
+              <li className="th-sb-athlete-popover-empty">No plans yet</li>
             )}
             {visibleAthletes.map(a => {
               const isActive = a.uid === selectedAthleteId
-              const isSelf = a.uid === userProfile?.uid
               return (
                 <li key={a.uid}>
                   <button
@@ -111,14 +152,36 @@ function SidebarAthlete({
                       {initialOf(a)}
                     </span>
                     <span className="th-sb-athlete-option-name">
-                      {isSelf ? `${a.displayName} (me)` : (a.displayName || a.email || 'No name')}
+                      {planLabel(a, userProfile)}
                     </span>
+                    {a.isDraft && (
+                      <span
+                        className="th-sb-athlete-option-share"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Share ${planLabel(a, userProfile)}`}
+                        onClick={e => handleShare(a, e)}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleShare(a, e) }}
+                        title="Share plan via link"
+                      >
+                        <Share2 size={14} aria-hidden="true" />
+                      </span>
+                    )}
                     {isActive && <span className="th-sb-athlete-option-dot" aria-hidden="true" />}
                   </button>
                 </li>
               )
             })}
           </ul>
+          <button
+            type="button"
+            className="th-sb-athlete-new"
+            onClick={handleNewPlan}
+            disabled={busy}
+          >
+            <Plus size={16} aria-hidden="true" />
+            <span>New plan</span>
+          </button>
         </div>
       )}
     </div>
@@ -138,6 +201,7 @@ export function NavProvider({
   athletes,
   selectedAthleteId,
   setSelectedAthleteId,
+  selectPlan,
   children,
 }) {
   const value = useMemo(() => {
@@ -224,14 +288,15 @@ export function NavProvider({
       </div>
     )
 
-    const showAthleteBlock = canManageWorkouts && (athletes?.length || 0) > 0
-    const selectedAthlete = showAthleteBlock ? (
+    // Rendered for every active user — a plain athlete uses it to create their
+    // first plan (which promotes them to coach), coaches use it to switch plans.
+    const selectedAthlete = userProfile ? (
       <SidebarAthlete
         athletes={athletes}
         selectedAthleteId={selectedAthleteId}
         setSelectedAthleteId={setSelectedAthleteId}
+        selectPlan={selectPlan || setSelectedAthleteId}
         userProfile={userProfile}
-        isSuperadmin={isSuperadmin}
       />
     ) : null
 
@@ -249,6 +314,7 @@ export function NavProvider({
     athletes,
     selectedAthleteId,
     setSelectedAthleteId,
+    selectPlan,
   ])
 
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>

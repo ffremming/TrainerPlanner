@@ -393,6 +393,62 @@
   flex-shrink: 0;
 }
 
+.th-sb-athlete-option-share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--th-radius-sm);
+  color: var(--th-ink-muted);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--th-dur-base) var(--th-ease),
+              background-color var(--th-dur-base) var(--th-ease),
+              color var(--th-dur-base) var(--th-ease);
+}
+
+.th-sb-athlete-option:hover .th-sb-athlete-option-share,
+.th-sb-athlete-option:focus-within .th-sb-athlete-option-share {
+  opacity: 1;
+}
+
+.th-sb-athlete-option-share:hover {
+  background: var(--th-surface);
+  color: var(--th-accent);
+}
+
+.th-sb-athlete-new {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--th-space-2);
+  margin-top: var(--th-space-2);
+  padding: var(--th-space-2) var(--th-space-3);
+  border-radius: var(--th-radius-md);
+  border: 1px dashed var(--th-line);
+  background: transparent;
+  color: var(--th-accent);
+  font-family: var(--th-font-sans);
+  font-size: var(--th-text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--th-dur-base) var(--th-ease),
+              border-color var(--th-dur-base) var(--th-ease);
+}
+
+.th-sb-athlete-new:hover {
+  background: var(--th-accent-soft);
+  border-color: var(--th-accent);
+}
+
+.th-sb-athlete-new:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ── Account block (lives at the bottom of the sidebar) ──────────── */
 .th-account {
   display: flex;

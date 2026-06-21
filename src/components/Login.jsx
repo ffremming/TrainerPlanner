@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion as m } from 'framer-motion'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase'
-import { createUserProfile } from '../userService'
+import { createUserProfile, createInvitedUserProfile } from '../userService'
 import {
   assertAuthAttemptAllowed,
   clearAuthAttempts,
@@ -22,13 +22,14 @@ import './Login.css'
 
 const { fadeInUp, stagger, viewport, floatY, floatYAlt } = motionVariants
 
-export default function Login({ onClose, fullScreen }) {
+export default function Login({ onClose, fullScreen, invitePending = false, pendingInvite = null }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [isRegistering, setIsRegistering] = useState(false)
+  // An invite link lands the visitor on registration so they can claim the plan.
+  const [isRegistering, setIsRegistering] = useState(invitePending)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -52,7 +53,12 @@ export default function Login({ onClose, fullScreen }) {
     try {
       if (isRegistering) {
         const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, password)
-        await createUserProfile(cred.user.uid, normalizedEmail, displayName.trim(), 'athlete')
+        if (pendingInvite?.token) {
+          // Invited users are activated immediately — the invite is their access.
+          await createInvitedUserProfile(cred.user.uid, normalizedEmail, displayName.trim(), pendingInvite.token)
+        } else {
+          await createUserProfile(cred.user.uid, normalizedEmail, displayName.trim(), 'athlete')
+        }
       } else {
         await signInWithEmailAndPassword(auth, normalizedEmail, password)
       }
@@ -74,6 +80,12 @@ export default function Login({ onClose, fullScreen }) {
 
   const form = (
     <form onSubmit={handleSubmit} className="th-login-form">
+      {invitePending && (
+        <div className="th-login-invite" role="status">
+          <strong>You've been invited to a plan{pendingInvite?.planName ? `: “${pendingInvite.planName}”` : ''}.</strong>
+          <span>Create an account to open it. It's added to your plans automatically.</span>
+        </div>
+      )}
       {isRegistering && (
         <Field label="Name">
           <Input

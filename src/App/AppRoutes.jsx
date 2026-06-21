@@ -29,12 +29,23 @@ export default function AppRoutes({
   setShowAthleteOverview,
   setShowAdmin,
   setShowMyAccount,
+  invitePending,
+  pendingInvite,
   handlers,
   adminScreenProps,
   mainShellProps,
 }) {
   if (user === undefined || (user && profileLoading)) return <LoadingScreen />
-  if (!user) return <Login fullScreen onClose={() => {}} />
+  if (!user) {
+    return (
+      <Login
+        fullScreen
+        onClose={() => {}}
+        invitePending={invitePending}
+        pendingInvite={pendingInvite}
+      />
+    )
+  }
   if (profileError) {
     return <ProfileErrorScreen message={profileError} onLogout={handlers.handleLogout} />
   }

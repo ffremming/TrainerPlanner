@@ -36,7 +36,13 @@ export function useAuth() {
         const existing = await getUserProfile(user.uid)
         if (cancelled) return
 
-        if (!existing) {
+        // When arriving via a share link, the Login screen owns profile creation
+        // (it creates an active, invite-stamped profile). Don't race it with a
+        // fallback pending profile, which would clobber the invited account.
+        const hasPendingInvite = typeof window !== 'undefined'
+          && new URLSearchParams(window.location.search).has('invite')
+
+        if (!existing && !hasPendingInvite) {
           const fallbackName = user.email?.split('@')[0] || 'user'
           await createUserProfile(user.uid, user.email || '', fallbackName, 'athlete')
         }

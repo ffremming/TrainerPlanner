@@ -83,6 +83,22 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+    // A visitor arriving through a valid share link self-creates as an ACTIVE
+    // athlete (the invite is their authorization), stamped with the token so we
+    // can confirm the invite exists. No superadmin activation needed.
+    function isValidInvitedSelfCreate(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.displayName is string
+        && request.resource.data.role == 'athlete'
+        && request.resource.data.roles == ['athlete']
+        && request.resource.data.status == 'active'
+        && request.resource.data.invitedVia is string
+        && exists(/databases/$(database)/documents/invites/$(request.resource.data.invitedVia));
+    }
+
     function isValidUserAdminUpdate() {
       return !changedKeys().hasAny(['uid', 'email', 'createdAt'])
         && (!('status' in request.resource.data) || isValidStatus(request.resource.data.status))
@@ -96,6 +112,31 @@ service cloud.firestore {
       ]);
     }
 
+    // A draft athlete is a placeholder "plan for someone else" — no real person
+    // signs in behind it. Any active user may create one they own, so plans can
+    // be authored without coaching a real athlete first.
+    function isValidDraftCreate(userId) {
+      return isActiveUser()
+        && request.resource.data.uid == userId
+        && request.resource.data.isDraft == true
+        && request.resource.data.ownerCoachId == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.roles == ['athlete'];
+    }
+
+    function isDraftUser(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId))
+        && get(/databases/$(database)/documents/users/$(userId)).data.isDraft == true;
+    }
+
+    // Active users may add the additive 'coach' role to their OWN profile
+    // (authoring or claiming a shared plan promotes them to coach).
+    function isSelfCoachPromotion() {
+      return changedKeys().hasOnly(['role', 'roles', 'updatedAt'])
+        && request.resource.data.roles is list
+        && 'athlete' in request.resource.data.roles;
+    }
+
     // Users collection
     match /users/{userId} {
       allow read: if signedIn() && (
@@ -105,14 +146,19 @@ service cloud.firestore {
         // Athletes browse the coach directory to pick their own coaches.
         (isActiveUser() && 'coach' in resource.data.roles)
       );
-      // New users may only self-create as pending athletes. A superadmin must
-      // activate the profile before it can read or write training data.
-      allow create: if isValidSelfCreate(userId);
-      // Self/coach profile edits cannot change identity, roles, or status.
+      // New users self-create as pending athletes (superadmin then activates);
+      // invited users self-create as active via a valid share link; or an active
+      // user creates a draft "plan" athlete that they own.
+      allow create: if isValidSelfCreate(userId)
+        || isValidInvitedSelfCreate(userId)
+        || isValidDraftCreate(userId);
+      // Self/coach profile edits cannot change identity, roles, or status —
+      // except a user adding the additive 'coach' role to their own profile.
       // Superadmins can manage role and status but not rewrite immutable identity.
       allow update: if isActiveUser() && (
         (isSuperadmin() && isValidUserAdminUpdate()) ||
         (request.auth.uid == userId && isSafeProfileUpdate()) ||
+        (request.auth.uid == userId && isSelfCoachPromotion()) ||
         (isCoachOf(userId) && isSafeProfileUpdate())
       );
     }
@@ -124,14 +170,38 @@ service cloud.firestore {
         resource.data.coachId == request.auth.uid ||
         resource.data.athleteId == request.auth.uid
       );
-      // Superadmins manage any link; athletes manage links where they are the athlete.
+      // Superadmins manage any link; athletes manage links where they are the
+      // athlete; and a user may make themselves coach of a draft "plan" athlete
+      // (authoring or claiming a shared plan).
       allow create, update: if isActiveUser()
-        && (isSuperadmin() || request.auth.uid == request.resource.data.athleteId)
+        && (
+          isSuperadmin() ||
+          request.auth.uid == request.resource.data.athleteId ||
+          (request.auth.uid == request.resource.data.coachId && isDraftUser(request.resource.data.athleteId))
+        )
         && request.resource.data.coachId is string
         && request.resource.data.athleteId is string
         && relationshipId == request.resource.data.coachId + '_' + request.resource.data.athleteId;
       allow delete: if isActiveUser()
         && (isSuperadmin() || resource.data.athleteId == request.auth.uid);
+    }
+
+    // Share-by-link plan invites. The inviter (a coach of the draft) creates the
+    // token; any active user may read it to claim, and may stamp themselves as
+    // the claimer. The token itself is the unguessable secret.
+    match /invites/{token} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser()
+        && request.resource.data.token == token
+        && request.resource.data.inviterId == request.auth.uid
+        && request.resource.data.athleteId is string
+        && isCoachOf(request.resource.data.athleteId);
+      // Claiming may only stamp claimedBy/claimedAt with the caller's identity.
+      allow update: if isActiveUser()
+        && changedKeys().hasOnly(['claimedBy', 'claimedAt'])
+        && request.resource.data.claimedBy == request.auth.uid
+        && request.resource.data.athleteId == resource.data.athleteId
+        && request.resource.data.inviterId == resource.data.inviterId;
     }
 
     // Workouts

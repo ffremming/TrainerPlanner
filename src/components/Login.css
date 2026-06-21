@@ -239,6 +239,21 @@
   border-radius: var(--th-radius-lg);
 }
 
+.th-login-invite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--th-space-1);
+  font-size: var(--th-text-sm);
+  color: var(--th-accent, #2563eb);
+  background: var(--th-accent-soft, #eff6ff);
+  border: 1px solid color-mix(in srgb, var(--th-accent, #2563eb) 22%, transparent);
+  padding: var(--th-space-3) var(--th-space-4);
+  border-radius: var(--th-radius-lg);
+}
+
+.th-login-invite strong { font-weight: 600; }
+.th-login-invite span { color: var(--th-text-muted, inherit); }
+
 .th-login-toggle {
   display: flex;
   align-items: center;

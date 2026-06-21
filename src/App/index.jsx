@@ -11,6 +11,7 @@ import { hasRole, isActiveUserProfile } from '../roles'
 import ShortcutsHelp from '../components/ShortcutsHelp'
 import '../components/AthleteHome.css'
 import { useAuth } from './hooks/useAuth'
+import { useInvite } from './hooks/useInvite'
 import { useAthletes } from './hooks/useAthletes'
 import { useWorkouts } from './hooks/useWorkouts'
 import { useTemplates } from './hooks/useTemplates'
@@ -66,6 +67,28 @@ export default function App() {
     activeUserProfile,
     { isAthlete, isCoach, isSuperadmin }
   )
+
+  // Selecting a just-created or just-claimed plan is sticky: useAthletes can
+  // briefly drop a selection while the new athlete doc loads, so we record the
+  // intent and re-assert it the moment the plan appears in the roster.
+  const [desiredAthleteId, setDesiredAthleteId] = useState(null)
+  const requestSelectAthlete = (id) => {
+    setDesiredAthleteId(id)
+    setSelectedAthleteId(id)
+  }
+  useEffect(() => {
+    if (!desiredAthleteId) return
+    if (athletes.some(a => a.uid === desiredAthleteId)) {
+      setSelectedAthleteId(desiredAthleteId)
+      if (selectedAthleteId === desiredAthleteId) setDesiredAthleteId(null)
+    }
+  }, [desiredAthleteId, athletes, selectedAthleteId, setSelectedAthleteId])
+
+  // Share-by-link: claim a ?invite=TOKEN plan and jump to it once it loads.
+  const { invitePending, pendingInvite, claimedAthleteId } = useInvite(activeUserProfile)
+  useEffect(() => {
+    if (claimedAthleteId) setDesiredAthleteId(claimedAthleteId)
+  }, [claimedAthleteId])
 
   const selectedAthleteProfile = athletes.find(athlete => athlete.uid === selectedAthleteId) || null
   const adminWorkoutLayout = selectedAthleteProfile?.workoutLayout === 'calendar' ? 'calendar' : 'list'
@@ -199,6 +222,7 @@ export default function App() {
       athletes={athletes}
       selectedAthleteId={selectedAthleteId}
       setSelectedAthleteId={setSelectedAthleteId}
+      selectPlan={requestSelectAthlete}
     >
       <AppRoutes
         user={user}
@@ -216,6 +240,8 @@ export default function App() {
         setShowAthleteOverview={setShowAthleteOverview}
         setShowAdmin={setShowAdmin}
         setShowMyAccount={setShowMyAccount}
+        invitePending={invitePending}
+        pendingInvite={pendingInvite}
         handlers={handlers}
         adminScreenProps={adminScreenProps}
         mainShellProps={mainShellProps}
