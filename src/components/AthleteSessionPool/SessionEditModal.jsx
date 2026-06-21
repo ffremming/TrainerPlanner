@@ -1,13 +1,32 @@
 import { useState } from 'react'
 import { Button, Field, Input, Modal, Select, Textarea } from '../ui'
 import SessionEditor from '../SessionEditor'
-import { ACTIVITY_TAGS, WORKOUT_TYPES } from '../../utils'
+import {
+  ACTIVITY_TAGS,
+  WORKOUT_TYPES,
+  getAllowedIntensityZones,
+  normalizeIntensityZones,
+} from '../../utils'
+import { getSessionDomain } from '../../sessionBlocks'
 
 export default function SessionEditModal({ session, onClose, onSave }) {
   const [draft, setDraft] = useState(() => ({ ...session }))
 
+  // Strength sessions are sets/reps/load based and have no aerobic intensity
+  // zone, so the picker is hidden for them — matching WorkoutForm.
+  const isStrength = getSessionDomain(draft.activityTag) === 'strength'
+  const allowedZones = getAllowedIntensityZones(draft.type)
+
   function patch(key, value) {
     setDraft(prev => ({ ...prev, [key]: value }))
+  }
+
+  function toggleIntensityZone(zone) {
+    const currentZones = normalizeIntensityZones(draft.type, draft.intensityZone)
+    const nextZones = currentZones.includes(zone)
+      ? (currentZones.length > 1 ? currentZones.filter(currentZone => currentZone !== zone) : currentZones)
+      : [...currentZones, zone].sort((a, b) => a - b)
+    patch('intensityZone', nextZones)
   }
 
   return (
@@ -43,6 +62,23 @@ export default function SessionEditModal({ session, onClose, onSave }) {
             </Select>
           </Field>
         </div>
+
+        {!isStrength && (
+          <Field label="Intensity zone" hint="Select one or more zones">
+            <div className="zone-picker">
+              {allowedZones.map(z => (
+                <button
+                  key={z}
+                  type="button"
+                  className={`th-zone-btn th-zone-${z}${normalizeIntensityZones(draft.type, draft.intensityZone).includes(z) ? ' is-active' : ''}`}
+                  onClick={() => toggleIntensityZone(z)}
+                >
+                  Zone {z}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
 
         <Field label="Description">
           <Textarea
